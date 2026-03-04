@@ -1,0 +1,8 @@
+{
+  "name": "BUYSELL Nigeria",
+  "description": "Nigeria's premier marketplace for buying, selling, dropshipping, and affiliate earning.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
