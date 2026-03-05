@@ -38,7 +38,8 @@ import {
   Link,
   ExternalLink,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { User, Product, CartItem, Order, AffiliateEarning } from './types';
@@ -87,6 +88,11 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    const saved = localStorage.getItem('recentSearches');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [activeSellerSection, setActiveSellerSection] = useState('overview');
@@ -114,6 +120,12 @@ export default function App() {
   });
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem('wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [checkoutStep, setCheckoutStep] = useState<'delivery' | 'payment' | 'success'>('delivery');
+  const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([
     {
       id: 'ord1',
@@ -181,6 +193,10 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -189,6 +205,14 @@ export default function App() {
       }
       return [...prev, { ...product, quantity: 1 }];
     });
+  };
+
+  const toggleWishlist = (productId: string) => {
+    setWishlist(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId) 
+        : [...prev, productId]
+    );
   };
 
   const handleChatSubmit = async (e?: React.FormEvent) => {
@@ -208,7 +232,8 @@ export default function App() {
   const filteredProducts = MOCK_PRODUCTS.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          product.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || 
+                           (selectedCategory === 'wishlist' ? wishlist.includes(product.id) : product.category === selectedCategory);
     const matchesCondition = selectedCondition === 'all' || product.condition === selectedCondition;
     return matchesSearch && matchesCategory && matchesCondition;
   });
@@ -283,11 +308,11 @@ export default function App() {
     };
 
     setOrders(prev => [order, ...prev]);
+    setLastOrder(order);
     console.log('Order Created:', order);
     
-    setCart([]);
-    setIsCheckoutOpen(false);
     setIsSubmittingOrder(false);
+    setCheckoutStep('success');
     setPaymentReceipt(null);
     setDeliveryDetails({
       name: '',
@@ -297,8 +322,6 @@ export default function App() {
       city: '',
       address: ''
     });
-    
-    alert(`Order ${order.order_number} submitted! The seller will contact you on WhatsApp shortly.`);
   };
 
   const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
@@ -378,64 +401,193 @@ export default function App() {
     </div>
   );
 
-  const BuyerNavbar = () => (
-    <nav className="sticky top-0 z-40 bg-white shadow-sm border-b border-neutral-200">
-      <div className="bg-neutral-900 text-white text-[10px] md:text-xs py-2">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1"><Truck size={14} /> Free delivery on orders over ₦15,000</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <a href="#" className="hover:text-accent-400 transition">Track Order</a>
-            <a href="https://wa.me/2349061484256" target="_blank" className="hover:text-green-400 transition flex items-center gap-1">
-              <MessageSquare size={14} /> Support
-            </a>
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setShowSuggestions(false);
+    if (query.trim()) {
+      const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
+      setRecentSearches(updated);
+      localStorage.setItem('recentSearches', JSON.stringify(updated));
+    }
+  };
+
+  const BuyerNavbar = () => {
+    const suggestions = searchQuery.trim() 
+      ? MOCK_PRODUCTS
+          .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .slice(0, 5)
+          .map(p => p.name)
+      : [];
+
+    return (
+      <nav className="sticky top-0 z-40 bg-white shadow-sm border-b border-neutral-200">
+        <div className="bg-neutral-900 text-white text-[10px] md:text-xs py-2">
+          <div className="container mx-auto px-4 flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1"><Truck size={14} /> Free delivery on orders over ₦15,000</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <a href="#" className="hover:text-accent-400 transition">Track Order</a>
+              <a href="https://wa.me/2349061484256" target="_blank" className="hover:text-green-400 transition flex items-center gap-1">
+                <MessageSquare size={14} /> Support
+              </a>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center gap-4 md:gap-6">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('landing')}>
-            <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">B</span>
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setView('landing')}>
+              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">B</span>
+              </div>
+              <span className="text-lg md:text-xl font-heading font-bold text-neutral-900">BUY<span className="text-accent-500">SELL</span></span>
             </div>
-            <span className="text-lg md:text-xl font-heading font-bold text-neutral-900">BUY<span className="text-accent-500">SELL</span></span>
-          </div>
-          <div className="flex-1 max-w-3xl relative hidden md:block">
-            <input 
-              type="text" 
-              placeholder="Search for products, brands and categories..."
-              className="w-full pl-4 pr-12 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-brand-600 text-white p-1.5 rounded-md">
-              <Search size={18} />
-            </button>
-          </div>
-          <div className="flex items-center gap-3 md:gap-4 ml-auto">
-            <div className="relative cursor-pointer hover:bg-neutral-100 p-2 rounded-lg transition" onClick={() => setIsCartOpen(true)}>
-              <ShoppingCart size={22} />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-accent-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {cart.reduce((a, b) => a + b.quantity, 0)}
-                </span>
-              )}
+            <div className="flex-1 max-w-3xl relative hidden md:block">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Search for products, brands and categories..."
+                  className="w-full pl-4 pr-12 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch(searchQuery);
+                    }
+                  }}
+                />
+                <button 
+                  onClick={() => handleSearch(searchQuery)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-brand-600 text-white p-1.5 rounded-md"
+                >
+                  <Search size={18} />
+                </button>
+              </div>
+
+              {/* Suggestions Dropdown */}
+              <AnimatePresence>
+                {showSuggestions && (searchQuery.trim() || recentSearches.length > 0) && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-[-1]" 
+                      onClick={() => setShowSuggestions(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-neutral-100 overflow-hidden z-50"
+                    >
+                      {searchQuery.trim() ? (
+                        <div className="p-2">
+                          <div className="px-3 py-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Suggestions</div>
+                          {suggestions.length > 0 ? (
+                            suggestions.map((s, i) => (
+                              <button
+                                key={i}
+                                onClick={() => handleSearch(s)}
+                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-3 transition-colors"
+                              >
+                                <Search size={14} className="text-neutral-400" />
+                                <span className="text-sm text-neutral-700">{s}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-4 text-sm text-neutral-500 text-center italic">No matches found</div>
+                          )}
+                        </div>
+                      ) : (
+                        recentSearches.length > 0 && (
+                          <div className="p-2">
+                            <div className="flex items-center justify-between px-3 py-2">
+                              <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Recent Searches</div>
+                              <button 
+                                onClick={() => {
+                                  setRecentSearches([]);
+                                  localStorage.removeItem('recentSearches');
+                                }}
+                                className="text-[10px] font-bold text-brand-600 uppercase hover:underline"
+                              >
+                                Clear All
+                              </button>
+                            </div>
+                            {recentSearches.map((s, i) => (
+                              <button
+                                key={i}
+                                onClick={() => handleSearch(s)}
+                                className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-3 transition-colors"
+                              >
+                                <Clock size={14} className="text-neutral-400" />
+                                <span className="text-sm text-neutral-700">{s}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      )}
+                      
+                      {/* Popular Products (Always show some if no query) */}
+                      {!searchQuery.trim() && (
+                        <div className="p-2 border-t border-neutral-50">
+                          <div className="px-3 py-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Popular Products</div>
+                          {MOCK_PRODUCTS.slice(0, 3).map((p, i) => (
+                            <button
+                              key={i}
+                              onClick={() => handleSearch(p.name)}
+                              className="w-full text-left px-3 py-2 hover:bg-neutral-50 rounded-lg flex items-center gap-3 transition-colors"
+                            >
+                              <TrendingUp size={14} className="text-brand-500" />
+                              <span className="text-sm text-neutral-700">{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
-            <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center cursor-pointer">
-              <UserIcon size={18} className="text-neutral-600" />
+            <div className="flex items-center gap-3 md:gap-4 ml-auto">
+              <div 
+                className="relative cursor-pointer hover:bg-neutral-100 p-2 rounded-lg transition" 
+                onClick={() => {
+                  setSelectedCategory('wishlist');
+                  window.scrollTo({ top: 400, behavior: 'smooth' });
+                }}
+              >
+                <Heart size={22} className={wishlist.length > 0 ? "text-red-500" : "text-neutral-600"} fill={wishlist.length > 0 ? "currentColor" : "none"} />
+                {wishlist.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {wishlist.length}
+                  </span>
+                )}
+              </div>
+              <div className="relative cursor-pointer hover:bg-neutral-100 p-2 rounded-lg transition" onClick={() => setIsCartOpen(true)}>
+                <ShoppingCart size={22} />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-accent-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {cart.reduce((a, b) => a + b.quantity, 0)}
+                  </span>
+                )}
+              </div>
+              <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center cursor-pointer">
+                <UserIcon size={18} className="text-neutral-600" />
+              </div>
+              <button 
+                onClick={() => setView('seller')}
+                className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium hidden sm:flex items-center gap-2"
+              >
+                <Store size={16} /> Seller Dashboard
+              </button>
             </div>
-            <button 
-              onClick={() => setView('seller')}
-              className="bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium hidden sm:flex items-center gap-2"
-            >
-              <Store size={16} /> Seller Dashboard
-            </button>
           </div>
         </div>
-      </div>
-    </nav>
-  );
+      </nav>
+    );
+  };
 
   const SellerSidebar = () => (
     <aside className="w-64 bg-white border-r border-neutral-200 fixed h-full overflow-y-auto hidden lg:block">
@@ -555,16 +707,17 @@ export default function App() {
                   
                   {/* Category Filter */}
                   <div className="flex gap-2">
-                    {['all', 'phones', 'electronics', 'fashion', 'home', 'beauty'].map((cat) => (
+                    {['all', 'wishlist', 'phones', 'electronics', 'fashion', 'home', 'beauty'].map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                        className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
                           selectedCategory === cat 
                             ? 'bg-brand-600 text-white shadow-md' 
                             : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                         }`}
                       >
+                        {cat === 'wishlist' && <Heart size={12} fill={selectedCategory === 'wishlist' ? "currentColor" : "none"} />}
                         {cat.charAt(0).toUpperCase() + cat.slice(1)}
                       </button>
                     ))}
@@ -646,6 +799,19 @@ export default function App() {
                             <Video size={12} /> Video
                           </span>
                         )}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleWishlist(product.id);
+                          }}
+                          className={`absolute top-2 left-2 p-2 rounded-full backdrop-blur-md transition-all z-10 ${
+                            wishlist.includes(product.id) 
+                              ? 'bg-red-500 text-white' 
+                              : 'bg-black/20 text-white hover:bg-black/40'
+                          }`}
+                        >
+                          <Heart size={16} fill={wishlist.includes(product.id) ? "currentColor" : "none"} />
+                        </button>
                         {product.product_type === 'dropship' && (
                           <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1">
                             <Globe size={12} /> Dropship
@@ -688,10 +854,16 @@ export default function App() {
             ) : (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-neutral-300">
                 <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search size={32} className="text-neutral-400" />
+                  {selectedCategory === 'wishlist' ? <Heart size={32} className="text-neutral-400" /> : <Search size={32} className="text-neutral-400" />}
                 </div>
-                <h3 className="text-lg font-bold text-neutral-900 mb-2">No products found</h3>
-                <p className="text-neutral-500 mb-6">Try adjusting your filters or search query to find what you're looking for.</p>
+                <h3 className="text-lg font-bold text-neutral-900 mb-2">
+                  {selectedCategory === 'wishlist' ? 'Your wishlist is empty' : 'No products found'}
+                </h3>
+                <p className="text-neutral-500 mb-6">
+                  {selectedCategory === 'wishlist' 
+                    ? 'Start adding products you love to your wishlist to see them here.' 
+                    : 'Try adjusting your filters or search query to find what you\'re looking for.'}
+                </p>
                 <button 
                   onClick={() => {
                     setSelectedCategory('all');
@@ -1532,8 +1704,15 @@ export default function App() {
                   <button className="p-3 bg-white/90 backdrop-blur-md rounded-2xl text-neutral-900 shadow-xl hover:bg-white transition-all">
                     <Share2 size={20} />
                   </button>
-                  <button className="p-3 bg-white/90 backdrop-blur-md rounded-2xl text-neutral-900 shadow-xl hover:bg-white transition-all">
-                    <Heart size={20} />
+                  <button 
+                    onClick={() => toggleWishlist(selectedProduct.id)}
+                    className={`p-3 backdrop-blur-md rounded-2xl shadow-xl transition-all ${
+                      wishlist.includes(selectedProduct.id)
+                        ? 'bg-red-500 text-white'
+                        : 'bg-white/90 text-neutral-900 hover:bg-white'
+                    }`}
+                  >
+                    <Heart size={20} fill={wishlist.includes(selectedProduct.id) ? "currentColor" : "none"} />
                   </button>
                 </div>
               </div>
@@ -1683,6 +1862,7 @@ export default function App() {
                   <button 
                     onClick={() => {
                       setIsCartOpen(false);
+                      setCheckoutStep('delivery');
                       setIsCheckoutOpen(true);
                     }}
                     className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all"
@@ -1714,189 +1894,298 @@ export default function App() {
               className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
             >
               {/* Left Side: Order Summary & Payment */}
-              <div className="w-full md:w-5/12 bg-neutral-50 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-200">
-                <h3 className="text-xl font-heading font-bold mb-6">Order Summary</h3>
-                <div className="space-y-4 mb-8">
-                  {cart.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center text-sm">
-                      <div className="flex-1 pr-4">
-                        <span className="font-medium text-neutral-800">{item.name}</span>
-                        <span className="text-neutral-500 ml-2">x{item.quantity}</span>
+              {checkoutStep !== 'success' && (
+                <div className="w-full md:w-5/12 bg-neutral-50 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-200">
+                  <h3 className="text-xl font-heading font-bold mb-6">Order Summary</h3>
+                  <div className="space-y-4 mb-8">
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center text-sm">
+                        <div className="flex-1 pr-4">
+                          <span className="font-medium text-neutral-800">{item.name}</span>
+                          <span className="text-neutral-500 ml-2">x{item.quantity}</span>
+                        </div>
+                        <span className="font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
                       </div>
-                      <span className="font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                    ))}
+                    <div className="pt-4 border-t border-neutral-200 flex justify-between items-center">
+                      <span className="font-bold text-lg">Total</span>
+                      <span className="font-bold text-2xl text-brand-600">
+                        ₦{cart.reduce((a, b) => a + (b.price * b.quantity), 0).toLocaleString()}
+                      </span>
                     </div>
-                  ))}
-                  <div className="pt-4 border-t border-neutral-200 flex justify-between items-center">
-                    <span className="font-bold text-lg">Total</span>
-                    <span className="font-bold text-2xl text-brand-600">
-                      ₦{cart.reduce((a, b) => a + (b.price * b.quantity), 0).toLocaleString()}
-                    </span>
+                  </div>
+
+                  <div className="bg-brand-600 rounded-2xl p-6 text-white shadow-lg shadow-brand-500/20">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <NairaSign size={20} />
+                      </div>
+                      <span className="font-bold">Bank Transfer Details</span>
+                    </div>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between opacity-80">
+                        <span>Bank</span>
+                        <span className="font-bold">OPay</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Account</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">9061484256</span>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText('9061484256');
+                              alert('Account number copied!');
+                            }}
+                            className="p-1 hover:bg-white/10 rounded"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between opacity-80">
+                        <span>Name</span>
+                        <span className="font-bold">Efe Israel</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 p-3 bg-white/10 rounded-xl text-[10px] leading-relaxed">
+                      Please make the transfer and upload the receipt on the right to complete your order.
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="bg-brand-600 rounded-2xl p-6 text-white shadow-lg shadow-brand-500/20">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <NairaSign size={20} />
-                    </div>
-                    <span className="font-bold">Bank Transfer Details</span>
-                  </div>
-                  <div className="space-y-3 text-sm">
-                    <div className="flex justify-between opacity-80">
-                      <span>Bank</span>
-                      <span className="font-bold">OPay</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Account</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg">9061484256</span>
-                        <button 
-                          onClick={() => {
-                            navigator.clipboard.writeText('9061484256');
-                            alert('Account number copied!');
-                          }}
-                          className="p-1 hover:bg-white/10 rounded"
-                        >
-                          <Copy size={14} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex justify-between opacity-80">
-                      <span>Name</span>
-                      <span className="font-bold">Efe Israel</span>
-                    </div>
-                  </div>
-                  <div className="mt-6 p-3 bg-white/10 rounded-xl text-[10px] leading-relaxed">
-                    Please make the transfer and upload the receipt on the right to complete your order.
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side: Delivery Form */}
+              {/* Right Side: Form Content */}
               <div className="flex-1 p-6 md:p-8 overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-heading font-bold">Delivery Details</h3>
-                  <button onClick={() => setIsCheckoutOpen(false)} className="md:hidden p-2 hover:bg-neutral-100 rounded-lg">
+                  <div className="flex items-center gap-4">
+                    {checkoutStep !== 'success' && (
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${checkoutStep === 'delivery' ? 'bg-brand-600 text-white' : 'bg-green-100 text-green-600'}`}>
+                          {checkoutStep === 'delivery' ? '1' : <Check size={14} />}
+                        </div>
+                        <div className="w-8 h-0.5 bg-neutral-200" />
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${checkoutStep === 'payment' ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-400'}`}>
+                          2
+                        </div>
+                      </div>
+                    )}
+                    <h3 className="text-xl font-heading font-bold">
+                      {checkoutStep === 'delivery' && 'Delivery Details'}
+                      {checkoutStep === 'payment' && 'Payment & Receipt'}
+                      {checkoutStep === 'success' && 'Order Confirmed!'}
+                    </h3>
+                  </div>
+                  <button onClick={() => setIsCheckoutOpen(false)} className="p-2 hover:bg-neutral-100 rounded-lg">
                     <X size={20} />
                   </button>
                 </div>
 
-                <form onSubmit={handleCheckoutSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Name</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                        value={deliveryDetails.name}
-                        onChange={(e) => setDeliveryDetails({...deliveryDetails, name: e.target.value})}
-                        placeholder="John Doe"
-                      />
+                {checkoutStep === 'delivery' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                          value={deliveryDetails.name}
+                          onChange={(e) => setDeliveryDetails({...deliveryDetails, name: e.target.value})}
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Phone Number</label>
+                        <input 
+                          type="tel" 
+                          required
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                          value={deliveryDetails.phone}
+                          onChange={(e) => setDeliveryDetails({...deliveryDetails, phone: e.target.value})}
+                          placeholder="080..."
+                        />
+                      </div>
                     </div>
+
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Phone Number</label>
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">WhatsApp Number</label>
                       <input 
                         type="tel" 
                         required
                         className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                        value={deliveryDetails.phone}
-                        onChange={(e) => setDeliveryDetails({...deliveryDetails, phone: e.target.value})}
-                        placeholder="080..."
+                        value={deliveryDetails.whatsapp}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, whatsapp: e.target.value})}
+                        placeholder="Same as phone or different"
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">WhatsApp Number</label>
-                    <input 
-                      type="tel" 
-                      required
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                      value={deliveryDetails.whatsapp}
-                      onChange={(e) => setDeliveryDetails({...deliveryDetails, whatsapp: e.target.value})}
-                      placeholder="Same as phone or different"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">State</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                        value={deliveryDetails.state}
-                        onChange={(e) => setDeliveryDetails({...deliveryDetails, state: e.target.value})}
-                        placeholder="Lagos"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">City</label>
-                      <input 
-                        type="text" 
-                        required
-                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                        value={deliveryDetails.city}
-                        onChange={(e) => setDeliveryDetails({...deliveryDetails, city: e.target.value})}
-                        placeholder="Ikeja"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Address</label>
-                    <textarea 
-                      required
-                      rows={2}
-                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
-                      value={deliveryDetails.address}
-                      onChange={(e) => setDeliveryDetails({...deliveryDetails, address: e.target.value})}
-                      placeholder="Street name, house number, landmark..."
-                    />
-                  </div>
-
-                  <div className="space-y-4 pt-4">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Upload Payment Receipt</label>
-                    <div className="relative group">
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        required
-                        onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)}
-                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                      />
-                      <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${paymentReceipt ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-neutral-50 group-hover:border-brand-300'}`}>
-                        {paymentReceipt ? (
-                          <div className="text-center">
-                            <CheckCircle2 className="text-green-600 mx-auto mb-2" size={32} />
-                            <span className="text-sm text-green-700 font-medium">{paymentReceipt.name}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <Plus className="text-neutral-400 mb-2" size={32} />
-                            <span className="text-sm text-neutral-500">Click to upload transfer screenshot</span>
-                          </>
-                        )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">State</label>
+                        <input 
+                          type="text" 
+                          required
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                          value={deliveryDetails.state}
+                          onChange={(e) => setDeliveryDetails({...deliveryDetails, state: e.target.value})}
+                          placeholder="Lagos"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">City</label>
+                        <input 
+                          type="text" 
+                          required
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                          value={deliveryDetails.city}
+                          onChange={(e) => setDeliveryDetails({...deliveryDetails, city: e.target.value})}
+                          placeholder="Ikeja"
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  <button 
-                    type="submit"
-                    disabled={isSubmittingOrder}
-                    className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isSubmittingOrder ? (
-                      <>
-                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Confirm Order & Payment'
-                    )}
-                  </button>
-                </form>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Address</label>
+                      <textarea 
+                        required
+                        rows={2}
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                        value={deliveryDetails.address}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, address: e.target.value})}
+                        placeholder="Street name, house number, landmark..."
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        if (deliveryDetails.name && deliveryDetails.phone && deliveryDetails.address) {
+                          setCheckoutStep('payment');
+                        } else {
+                          alert('Please fill in all required delivery details');
+                        }
+                      }}
+                      className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all flex items-center justify-center gap-2"
+                    >
+                      Continue to Payment <ArrowRight size={18} />
+                    </button>
+                  </div>
+                )}
+
+                {checkoutStep === 'payment' && (
+                  <form onSubmit={handleCheckoutSubmit} className="space-y-6">
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
+                      <Zap className="text-amber-600 shrink-0" size={20} />
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        Please transfer the total amount to the bank account shown on the left, then upload your receipt below to confirm your order.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Upload Payment Receipt</label>
+                      <div className="relative group">
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          required
+                          onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        />
+                        <div className={`w-full py-12 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${paymentReceipt ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-neutral-50 group-hover:border-brand-300'}`}>
+                          {paymentReceipt ? (
+                            <div className="text-center">
+                              <CheckCircle2 className="text-green-600 mx-auto mb-2" size={40} />
+                              <span className="text-sm text-green-700 font-medium">{paymentReceipt.name}</span>
+                              <p className="text-[10px] text-green-600 mt-1">Click to change file</p>
+                            </div>
+                          ) : (
+                            <>
+                              <Plus className="text-neutral-400 mb-2" size={40} />
+                              <span className="text-sm text-neutral-500 font-medium">Click to upload transfer screenshot</span>
+                              <p className="text-[10px] text-neutral-400 mt-1">JPG, PNG or PDF supported</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button 
+                        type="button"
+                        onClick={() => setCheckoutStep('delivery')}
+                        className="flex-1 px-6 py-4 border border-neutral-200 rounded-2xl font-bold text-neutral-600 hover:bg-neutral-50 transition-all"
+                      >
+                        Back
+                      </button>
+                      <button 
+                        type="submit"
+                        disabled={isSubmittingOrder || !paymentReceipt}
+                        className="flex-[2] bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isSubmittingOrder ? (
+                          <>
+                            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Confirm Order'
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {checkoutStep === 'success' && lastOrder && (
+                  <div className="text-center py-8">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <CheckCircle2 className="text-green-600" size={40} />
+                    </div>
+                    <h4 className="text-2xl font-bold mb-2">Order Placed Successfully!</h4>
+                    <p className="text-neutral-500 mb-8 max-w-xs mx-auto">
+                      Your order <span className="font-bold text-neutral-900">#{lastOrder.order_number}</span> has been received. The seller will contact you on WhatsApp shortly.
+                    </p>
+
+                    <div className="bg-neutral-50 rounded-2xl p-6 text-left mb-8">
+                      <div className="flex justify-between items-center mb-4 pb-4 border-b border-neutral-200">
+                        <span className="text-sm text-neutral-500">Amount Paid</span>
+                        <span className="font-bold text-lg text-brand-600">₦{lastOrder.total_amount.toLocaleString()}</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-neutral-500">Delivery to</span>
+                          <span className="font-medium">{lastOrder.delivery_name}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-neutral-500">Location</span>
+                          <span className="font-medium">{lastOrder.delivery_city}, {lastOrder.delivery_state}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button 
+                        onClick={() => {
+                          setCart([]);
+                          setIsCheckoutOpen(false);
+                          setView('buyer');
+                        }}
+                        className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold hover:bg-brand-700 transition-all"
+                      >
+                        Continue Shopping
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCart([]);
+                          setIsCheckoutOpen(false);
+                          // In a real app, we'd go to "My Orders"
+                          alert("Order tracking coming soon!");
+                        }}
+                        className="w-full py-4 text-brand-600 font-bold hover:underline"
+                      >
+                        Track My Order
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
