@@ -68,7 +68,7 @@ const NairaSign = ({ size = 24, className = "" }: { size?: number, className?: s
 );
 
 export default function App() {
-  const [view, setView] = useState<'landing' | 'buyer' | 'seller'>('landing');
+  const [view, setView] = useState<'landing' | 'buyer' | 'seller' | 'buyer-dashboard'>('landing');
   const [user, setUser] = useState<User | null>({
     id: 'current-user',
     email: 'israelefe093@gmail.com',
@@ -77,8 +77,12 @@ export default function App() {
     store_name: 'Efe Gadgets',
     user_type: 'both',
     whatsapp_number: '2349061484256',
-    is_verified: false,
-    verification_status: 'unverified',
+    account_number: '9061484256',
+    bank_name: 'OPay',
+    is_verified: true,
+    verification_status: 'verified',
+    subscription_status: 'active',
+    subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     created_at: new Date().toISOString()
   });
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -119,47 +123,82 @@ export default function App() {
     address: ''
   });
   const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authData, setAuthData] = useState({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    store_name: '',
+    whatsapp_number: '',
+    account_number: '',
+    bank_name: 'OPay'
+  });
   const [wishlist, setWishlist] = useState<string[]>(() => {
     const saved = localStorage.getItem('wishlist');
     return saved ? JSON.parse(saved) : [];
   });
   const [checkoutStep, setCheckoutStep] = useState<'delivery' | 'payment' | 'success'>('delivery');
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 'ord1',
-      order_number: 'ORD-123456',
-      buyer_id: 'buyer1',
-      seller_id: 'seller1',
-      total_amount: 45000,
-      status: 'pending',
-      delivery_name: 'Chinedu Okafor',
-      delivery_phone: '08012345678',
-      delivery_whatsapp: '08012345678',
-      delivery_state: 'Lagos',
-      delivery_city: 'Ikeja',
-      delivery_address: '123 Allen Avenue',
-      payment_receipt_url: 'https://picsum.photos/seed/receipt1/400/600',
-      created_at: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      id: 'ord2',
-      order_number: 'ORD-789012',
-      buyer_id: 'buyer2',
-      seller_id: 'seller1',
-      total_amount: 120000,
-      status: 'paid',
-      delivery_name: 'Amina Bello',
-      delivery_phone: '09087654321',
-      delivery_whatsapp: '09087654321',
-      delivery_state: 'Abuja',
-      delivery_city: 'Garki',
-      delivery_address: '45 Garki Road',
-      payment_receipt_url: 'https://picsum.photos/seed/receipt2/400/600',
-      created_at: new Date(Date.now() - 172800000).toISOString()
-    }
-  ]);
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('products');
+    return saved ? JSON.parse(saved) : MOCK_PRODUCTS;
+  });
+  const [allSellers, setAllSellers] = useState<Partial<User>[]>(() => {
+    const saved = localStorage.getItem('allSellers');
+    return saved ? JSON.parse(saved) : Object.values(MOCK_SELLERS);
+  });
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('orders');
+    return saved ? JSON.parse(saved) : [
+      {
+        id: 'ord1',
+        order_number: 'ORD-123456',
+        buyer_id: 'buyer1',
+        seller_id: 'seller1',
+        total_amount: 45000,
+        status: 'pending',
+        delivery_name: 'Chinedu Okafor',
+        delivery_phone: '08012345678',
+        delivery_whatsapp: '08012345678',
+        delivery_state: 'Lagos',
+        delivery_city: 'Ikeja',
+        delivery_address: '123 Allen Avenue',
+        payment_receipt_url: 'https://picsum.photos/seed/receipt1/400/600',
+        created_at: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: 'ord2',
+        order_number: 'ORD-789012',
+        buyer_id: 'buyer2',
+        seller_id: 'seller1',
+        total_amount: 120000,
+        status: 'paid',
+        delivery_name: 'Amina Bello',
+        delivery_phone: '09087654321',
+        delivery_whatsapp: '09087654321',
+        delivery_state: 'Abuja',
+        delivery_city: 'Garki',
+        delivery_address: '45 Garki Road',
+        payment_receipt_url: 'https://picsum.photos/seed/receipt2/400/600',
+        created_at: new Date(Date.now() - 172800000).toISOString()
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('allSellers', JSON.stringify(allSellers));
+  }, [allSellers]);
+
+  useEffect(() => {
+    localStorage.setItem('orders', JSON.stringify(orders));
+  }, [orders]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -229,7 +268,7 @@ export default function App() {
     setIsChatLoading(false);
   };
 
-  const filteredProducts = MOCK_PRODUCTS.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          product.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || 
@@ -242,9 +281,7 @@ export default function App() {
     e.preventDefault();
     setIsUploading(true);
     
-    // In a real app, we would upload files to a storage service (like Supabase Storage)
-    // For this demo, we'll use URL.createObjectURL to simulate the uploaded URLs
-    const imageUrl = productImage ? URL.createObjectURL(productImage) : 'https://via.placeholder.com/800';
+    const imageUrl = productImage ? URL.createObjectURL(productImage) : 'https://picsum.photos/seed/product/800/800';
     const videoUrl = productVideo ? URL.createObjectURL(productVideo) : undefined;
 
     const product: Product = {
@@ -258,9 +295,7 @@ export default function App() {
       created_at: new Date().toISOString()
     };
 
-    // Update local state (mocking DB insert)
-    // We would normally call an API here
-    MOCK_PRODUCTS.unshift(product);
+    setProducts(prev => [product, ...prev]);
     
     setIsUploading(false);
     setActiveSellerSection('products');
@@ -343,6 +378,220 @@ export default function App() {
     }
   };
 
+  const handleAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authMode === 'register') {
+      const newUser: User = {
+        id: `user-${Date.now()}`,
+        email: authData.email,
+        name: `${authData.first_name} ${authData.last_name}`,
+        first_name: authData.first_name,
+        last_name: authData.last_name,
+        store_name: authData.store_name,
+        user_type: authData.store_name ? 'both' : 'buyer',
+        whatsapp_number: authData.whatsapp_number,
+        account_number: authData.account_number,
+        bank_name: authData.bank_name,
+        is_verified: false,
+        verification_status: 'unverified',
+        subscription_status: 'active',
+        subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date().toISOString()
+      };
+      setUser(newUser);
+      if (newUser.user_type === 'both') {
+        setAllSellers(prev => [...prev, newUser]);
+      }
+    } else {
+      // Mock login
+      const existingUser = Object.values(MOCK_SELLERS).find(s => s.email === authData.email) || {
+        id: 'current-user',
+        email: authData.email,
+        name: 'Israel Efe',
+        first_name: 'Israel',
+        last_name: 'Efe',
+        store_name: 'Efe Gadgets',
+        user_type: 'both',
+        whatsapp_number: '2349061484256',
+        account_number: '9061484256',
+        bank_name: 'OPay',
+        is_verified: true,
+        verification_status: 'verified',
+        subscription_status: 'active',
+        subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date().toISOString()
+      };
+      setUser(existingUser as User);
+    }
+    setIsAuthModalOpen(false);
+  };
+
+  const isSubscriptionExpired = () => {
+    if (!user || user.user_type === 'buyer') return false;
+    if (!user.subscription_expires_at) return false;
+    return new Date(user.subscription_expires_at) < new Date();
+  };
+
+  const AuthModal = () => (
+    <AnimatePresence>
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsAuthModalOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl"
+          >
+            <div className="p-8">
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold">{authMode === 'login' ? 'Welcome Back' : 'Create Account'}</h2>
+                  <p className="text-neutral-500 text-sm">{authMode === 'login' ? 'Sign in to your account' : 'Join the BuySell community'}</p>
+                </div>
+                <button onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-neutral-100 rounded-full transition">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAuth} className="space-y-4">
+                {authMode === 'register' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase ml-1">First Name</label>
+                      <input 
+                        required
+                        type="text" 
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                        placeholder="John"
+                        value={authData.first_name}
+                        onChange={e => setAuthData({...authData, first_name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Last Name</label>
+                      <input 
+                        required
+                        type="text" 
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                        placeholder="Doe"
+                        value={authData.last_name}
+                        onChange={e => setAuthData({...authData, last_name: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Email Address</label>
+                  <input 
+                    required
+                    type="email" 
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                    placeholder="name@example.com"
+                    value={authData.email}
+                    onChange={e => setAuthData({...authData, email: e.target.value})}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Password</label>
+                  <input 
+                    required
+                    type="password" 
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                    placeholder="••••••••"
+                    value={authData.password}
+                    onChange={e => setAuthData({...authData, password: e.target.value})}
+                  />
+                </div>
+
+                {authMode === 'register' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Store Name (Optional)</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                        placeholder="My Awesome Store"
+                        value={authData.store_name}
+                        onChange={e => setAuthData({...authData, store_name: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase ml-1">WhatsApp Number</label>
+                      <input 
+                        required
+                        type="tel" 
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                        placeholder="234..."
+                        value={authData.whatsapp_number}
+                        onChange={e => setAuthData({...authData, whatsapp_number: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Bank Name</label>
+                        <select 
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                          value={authData.bank_name}
+                          onChange={e => setAuthData({...authData, bank_name: e.target.value})}
+                        >
+                          <option value="OPay">OPay</option>
+                          <option value="Palmpay">Palmpay</option>
+                          <option value="Kuda">Kuda</option>
+                          <option value="Moniepoint">Moniepoint</option>
+                          <option value="GTBank">GTBank</option>
+                          <option value="Zenith">Zenith</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-neutral-500 uppercase ml-1">Account Number</label>
+                        <input 
+                          required
+                          type="text" 
+                          className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition"
+                          placeholder="0123456789"
+                          value={authData.account_number}
+                          onChange={e => setAuthData({...authData, account_number: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <button 
+                  type="submit"
+                  className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/20"
+                >
+                  {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                </button>
+              </form>
+
+              <div className="mt-8 pt-8 border-t border-neutral-100 text-center">
+                <p className="text-neutral-500 text-sm">
+                  {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}
+                  <button 
+                    onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                    className="ml-2 text-brand-600 font-bold hover:underline"
+                  >
+                    {authMode === 'login' ? 'Sign Up' : 'Log In'}
+                  </button>
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   const LandingPage = () => (
     <div className="fixed inset-0 z-50 bg-gradient-to-br from-neutral-900 via-neutral-800 to-brand-900 overflow-hidden">
       <div className="min-h-screen flex flex-col">
@@ -354,7 +603,13 @@ export default function App() {
             <span className="text-2xl font-heading font-bold text-white">BUY<span className="text-accent-400">SELL</span></span>
             <span className="text-xs text-brand-300 mt-1">.ng</span>
           </div>
-          <button className="text-white hover:text-accent-400 transition text-sm font-medium">
+          <button 
+            onClick={() => {
+              setAuthMode('login');
+              setIsAuthModalOpen(true);
+            }}
+            className="text-white hover:text-accent-400 transition text-sm font-medium"
+          >
             Sign In
           </button>
         </header>
@@ -391,7 +646,18 @@ export default function App() {
               </div>
               <h2 className="text-3xl font-heading font-bold text-white mb-3">I'm a Seller</h2>
               <p className="text-neutral-300 mb-6 leading-relaxed">Sell your own products OR import from AliExpress & CJ Dropshipping. No inventory needed!</p>
-              <button className="bg-white text-neutral-900 font-semibold px-8 py-4 rounded-xl w-full flex items-center justify-center gap-2 transition-all hover:bg-neutral-100">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!user) {
+                    setAuthMode('register');
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setView('seller');
+                  }
+                }}
+                className="bg-white text-neutral-900 font-semibold px-8 py-4 rounded-xl w-full flex items-center justify-center gap-2 transition-all hover:bg-neutral-100"
+              >
                 Open Your Store <ArrowRight size={20} />
               </button>
             </motion.div>
@@ -413,7 +679,7 @@ export default function App() {
 
   const BuyerNavbar = () => {
     const suggestions = searchQuery.trim() 
-      ? MOCK_PRODUCTS
+      ? products
           .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
           .slice(0, 5)
           .map(p => p.name)
@@ -533,7 +799,7 @@ export default function App() {
                       {!searchQuery.trim() && (
                         <div className="p-2 border-t border-neutral-50">
                           <div className="px-3 py-2 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Popular Products</div>
-                          {MOCK_PRODUCTS.slice(0, 3).map((p, i) => (
+                          {products.slice(0, 3).map((p, i) => (
                             <button
                               key={i}
                               onClick={() => handleSearch(p.name)}
@@ -573,7 +839,10 @@ export default function App() {
                   </span>
                 )}
               </div>
-              <div className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center cursor-pointer">
+              <div 
+                className="w-8 h-8 bg-neutral-200 rounded-full flex items-center justify-center cursor-pointer hover:bg-neutral-300 transition"
+                onClick={() => setView('buyer-dashboard')}
+              >
                 <UserIcon size={18} className="text-neutral-600" />
               </div>
               <button 
@@ -587,6 +856,109 @@ export default function App() {
         </div>
       </nav>
     );
+  };
+
+  const handleApproveSubscription = (sellerId: string) => {
+    const newExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    setAllSellers(prev => prev.map(s => s.id === sellerId ? { ...s, subscription_status: 'active', subscription_expires_at: newExpiry } : s));
+    if (user?.id === sellerId) {
+      setUser(prev => prev ? { ...prev, subscription_status: 'active', subscription_expires_at: newExpiry } : null);
+    }
+    alert('Subscription approved for 30 days!');
+  };
+
+  const AdminDashboard = () => (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Super Admin Panel</h2>
+          <p className="text-neutral-500">Manage sellers and subscriptions</p>
+        </div>
+        <div className="flex gap-4">
+          <div className="bg-white px-6 py-3 rounded-2xl border border-neutral-200 shadow-sm">
+            <div className="text-xs text-neutral-400 uppercase font-bold mb-1">Total Sellers</div>
+            <div className="text-xl font-bold">{allSellers.length}</div>
+          </div>
+          <div className="bg-white px-6 py-3 rounded-2xl border border-neutral-200 shadow-sm">
+            <div className="text-xs text-neutral-400 uppercase font-bold mb-1">Expired Subs</div>
+            <div className="text-xl font-bold text-red-500">{allSellers.filter(s => new Date(s.subscription_expires_at || '') < new Date()).length}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-neutral-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-neutral-200">
+          <h3 className="font-bold">Seller Management</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-neutral-50 text-neutral-500 text-[10px] uppercase tracking-wider font-bold">
+              <tr>
+                <th className="px-6 py-4">Seller / Store</th>
+                <th className="px-6 py-4">Contact</th>
+                <th className="px-6 py-4">Subscription</th>
+                <th className="px-6 py-4">Expires At</th>
+                <th className="px-6 py-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {allSellers.map((seller) => {
+                const isExpired = new Date(seller.subscription_expires_at || '') < new Date();
+                return (
+                  <tr key={seller.id} className="hover:bg-neutral-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-sm">{seller.name}</div>
+                      <div className="text-xs text-brand-600 font-medium">{seller.store_name}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">{seller.email}</div>
+                      <div className="text-xs text-neutral-400">{seller.whatsapp_number}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${isExpired ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {isExpired ? 'Expired' : 'Active'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-neutral-600">
+                      {new Date(seller.subscription_expires_at || '').toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button 
+                        onClick={() => handleApproveSubscription(seller.id!)}
+                        className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-700 transition-all flex items-center gap-2"
+                      >
+                        <Check size={14} /> Approve Sub
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const handleImportDropship = (item: any) => {
+    const product: Product = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: item.name,
+      price: item.price * 1.4, // 40% markup
+      original_price: item.price,
+      category: 'electronics',
+      condition: 'new',
+      description: item.description,
+      location: 'Lagos, Nigeria',
+      is_negotiable: false,
+      image_url: item.image_url,
+      seller_id: user?.id || 'current-user',
+      status: 'active',
+      product_type: 'dropship',
+      created_at: new Date().toISOString()
+    };
+    setProducts(prev => [product, ...prev]);
+    alert(`${item.name} imported to your store with 40% markup!`);
   };
 
   const SellerSidebar = () => (
@@ -611,6 +983,7 @@ export default function App() {
           { id: 'affiliate', icon: DollarSign, label: 'Affiliate' },
           { id: 'orders', icon: ShoppingCart, label: 'Orders' },
           { id: 'settings', icon: Settings, label: 'Settings' },
+          ...(user?.email === 'israelefe093@gmail.com' ? [{ id: 'admin', icon: ShieldCheck, label: 'Super Admin', badge: 'ADMIN' }] : [])
         ].map((item) => (
           <button
             key={item.id}
@@ -624,7 +997,7 @@ export default function App() {
             <item.icon size={20} />
             <span className="font-medium">{item.label}</span>
             {item.badge && (
-              <span className="ml-auto bg-accent-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.id === 'admin' ? 'bg-red-500 text-white' : 'bg-accent-500 text-white'}`}>
                 {item.badge}
               </span>
             )}
@@ -643,9 +1016,250 @@ export default function App() {
     </aside>
   );
 
+  const BuyerDashboard = () => {
+    const buyerOrders = orders.filter(o => o.buyer_id === user?.id);
+    const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'profile'>('orders');
+    
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar */}
+          <aside className="w-full lg:w-80 space-y-6">
+            <div className="p-8 bg-white rounded-[40px] border border-neutral-200 shadow-sm">
+              <div className="w-24 h-24 bg-brand-100 rounded-3xl flex items-center justify-center text-brand-600 font-bold text-3xl mb-4 mx-auto shadow-inner">
+                {user?.first_name?.charAt(0)}{user?.last_name?.charAt(0)}
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-xl mb-1">{user?.first_name} {user?.last_name}</div>
+                <div className="text-sm text-neutral-500">{user?.email}</div>
+                <div className="mt-4 inline-flex items-center gap-2 px-3 py-1 bg-neutral-100 rounded-full text-[10px] font-bold text-neutral-600 uppercase">
+                  <ShieldCheck size={12} /> Verified Buyer
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-[40px] border border-neutral-200 p-4 shadow-sm">
+              {[
+                { id: 'orders', icon: ShoppingBag, label: 'My Orders' },
+                { id: 'wishlist', icon: Heart, label: 'Wishlist' },
+                { id: 'profile', icon: UserIcon, label: 'Profile Settings' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-3xl transition-all font-bold ${
+                    activeTab === item.id 
+                      ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/30' 
+                      : 'text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  {item.label}
+                </button>
+              ))}
+              
+              <div className="pt-4 mt-4 border-t border-neutral-100">
+                <button 
+                  onClick={() => setView('landing')}
+                  className="w-full flex items-center gap-4 px-6 py-4 rounded-3xl text-red-600 hover:bg-red-50 transition-all font-bold"
+                >
+                  <LogOut size={20} />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 space-y-8">
+            {activeTab === 'orders' && (
+              <>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl font-bold">My Orders</h2>
+                  <div className="text-sm text-neutral-500 font-medium">{buyerOrders.length} orders placed</div>
+                </div>
+
+                {buyerOrders.length > 0 ? (
+                  <div className="space-y-6">
+                    {buyerOrders.map((order) => (
+                      <div key={order.id} className="bg-white p-8 rounded-[40px] border border-neutral-200 shadow-sm hover:shadow-xl transition-all group">
+                        <div className="flex flex-wrap justify-between items-start gap-6 mb-8">
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">Order Number</div>
+                            <div className="font-mono font-bold text-lg text-brand-600">#{order.order_number}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">Date Placed</div>
+                            <div className="text-sm font-bold">{new Date(order.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">Order Status</div>
+                            <span className={`inline-flex px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                              order.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">Total Amount</div>
+                            <div className="font-bold text-2xl">₦{order.total_amount.toLocaleString()}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-neutral-100 gap-6">
+                          <div className="flex items-center gap-3 text-neutral-500 font-medium">
+                            <div className="w-10 h-10 bg-neutral-100 rounded-xl flex items-center justify-center">
+                              <MapPin size={18} />
+                            </div>
+                            <div>
+                              <div className="text-xs text-neutral-400">Shipping to</div>
+                              <div className="text-sm text-neutral-900">{order.delivery_city}, {order.delivery_state}</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-4 w-full md:w-auto">
+                            <button className="flex-1 md:flex-none px-6 py-3 bg-neutral-100 text-neutral-900 rounded-2xl font-bold text-sm hover:bg-neutral-200 transition-all">
+                              Track Order
+                            </button>
+                            <button className="flex-1 md:flex-none px-6 py-3 bg-brand-600 text-white rounded-2xl font-bold text-sm hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/20">
+                              Order Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-32 bg-white rounded-[60px] border-2 border-dashed border-neutral-200">
+                    <div className="w-24 h-24 bg-neutral-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                      <ShoppingBag size={48} className="text-neutral-200" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-neutral-900 mb-3">No orders yet</h3>
+                    <p className="text-neutral-500 mb-10 max-w-sm mx-auto leading-relaxed">Looks like you haven't made any purchases yet. Explore our latest products and start shopping!</p>
+                    <button 
+                      onClick={() => setView('buyer')}
+                      className="bg-brand-600 text-white px-10 py-4 rounded-[32px] font-bold text-lg hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/30"
+                    >
+                      Start Shopping
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === 'wishlist' && (
+              <>
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl font-bold">My Wishlist</h2>
+                  <div className="text-sm text-neutral-500 font-medium">{wishlist.length} items saved</div>
+                </div>
+                
+                {wishlist.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {MOCK_PRODUCTS.filter(p => wishlist.includes(p.id)).map((product) => (
+                      <div key={product.id} className="bg-white rounded-[40px] border border-neutral-200 overflow-hidden shadow-sm hover:shadow-xl transition-all group">
+                        <div className="aspect-square relative overflow-hidden">
+                          <img src={product.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
+                          <button 
+                            onClick={() => toggleWishlist(product.id)}
+                            className="absolute top-6 right-6 p-3 bg-white/90 backdrop-blur-md rounded-2xl text-red-500 shadow-lg hover:bg-white transition-all"
+                          >
+                            <Heart size={20} fill="currentColor" />
+                          </button>
+                        </div>
+                        <div className="p-8">
+                          <h4 className="font-bold text-lg mb-2 line-clamp-1">{product.name}</h4>
+                          <div className="text-2xl font-bold text-brand-600 mb-6">₦{product.price.toLocaleString()}</div>
+                          <button 
+                            onClick={() => addToCart(product)}
+                            className="w-full bg-neutral-900 text-white py-4 rounded-[24px] font-bold hover:bg-brand-600 transition-all flex items-center justify-center gap-2"
+                          >
+                            <ShoppingCart size={18} /> Add to Cart
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-32 bg-white rounded-[60px] border-2 border-dashed border-neutral-200">
+                    <div className="w-24 h-24 bg-neutral-50 rounded-full flex items-center justify-center mx-auto mb-8">
+                      <Heart size={48} className="text-neutral-200" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-neutral-900 mb-3">Wishlist is empty</h3>
+                    <p className="text-neutral-500 mb-10 max-w-sm mx-auto leading-relaxed">Save items you're interested in to keep track of them here.</p>
+                    <button 
+                      onClick={() => setView('buyer')}
+                      className="bg-brand-600 text-white px-10 py-4 rounded-[32px] font-bold text-lg hover:bg-brand-700 transition-all shadow-xl shadow-brand-500/30"
+                    >
+                      Browse Products
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === 'profile' && (
+              <div className="bg-white p-10 rounded-[50px] border border-neutral-200 shadow-sm">
+                <h2 className="text-3xl font-bold mb-8">Profile Settings</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">First Name</label>
+                      <input type="text" defaultValue={user?.first_name} className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-3xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-medium" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">Last Name</label>
+                      <input type="text" defaultValue={user?.last_name} className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-3xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-medium" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">Email Address</label>
+                      <input type="email" defaultValue={user?.email} className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-3xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-medium" />
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest ml-1">Phone Number</label>
+                      <input type="tel" defaultValue={user?.whatsapp_number} className="w-full px-6 py-4 bg-neutral-50 border border-neutral-200 rounded-3xl focus:ring-2 focus:ring-brand-500 outline-none transition-all font-medium" />
+                    </div>
+                    <div className="p-8 bg-brand-50 rounded-[40px] border border-brand-100">
+                      <h4 className="font-bold text-brand-900 mb-3 flex items-center gap-2">
+                        <Zap size={20} className="text-brand-600" />
+                        Become a Seller
+                      </h4>
+                      <p className="text-sm text-brand-700 leading-relaxed mb-6">Start selling your own products, dropshipping, or earning from referrals today!</p>
+                      <button 
+                        onClick={() => setView('seller')}
+                        className="w-full bg-brand-600 text-white py-4 rounded-3xl font-bold hover:bg-brand-700 transition-all shadow-lg shadow-brand-500/20"
+                      >
+                        Open My Store
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-12 pt-10 border-t border-neutral-100 flex justify-end">
+                  <button className="bg-neutral-900 text-white px-12 py-4 rounded-3xl font-bold hover:bg-brand-600 transition-all shadow-xl shadow-neutral-900/20">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen">
       {view === 'landing' && <LandingPage />}
+
+      {view === 'buyer-dashboard' && (
+        <div className="pb-20">
+          <BuyerNavbar />
+          <BuyerDashboard />
+        </div>
+      )}
 
       {view === 'buyer' && (
         <div className="pb-20">
@@ -691,6 +1305,37 @@ export default function App() {
                     />
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Featured Categories */}
+          <div className="bg-white py-12">
+            <div className="container mx-auto px-4">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-heading font-bold">Featured Categories</h2>
+                <button className="text-brand-600 text-sm font-bold hover:underline">View All</button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                {[
+                  { name: 'Phones', icon: '📱', color: 'bg-blue-50' },
+                  { name: 'Electronics', icon: '💻', color: 'bg-purple-50' },
+                  { name: 'Fashion', icon: '👕', color: 'bg-orange-50' },
+                  { name: 'Home', icon: '🏠', color: 'bg-green-50' },
+                  { name: 'Beauty', icon: '💄', color: 'bg-pink-50' },
+                  { name: 'Engineering', icon: '⚙️', color: 'bg-neutral-50' },
+                ].map((cat, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setSelectedCategory(cat.name.toLowerCase())}
+                    className="flex flex-col items-center gap-4 group"
+                  >
+                    <div className={`w-20 h-20 ${cat.color} rounded-3xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
+                      {cat.icon}
+                    </div>
+                    <span className="font-bold text-sm text-neutral-700">{cat.name}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -882,6 +1527,74 @@ export default function App() {
 
       {view === 'seller' && (
         <div className="bg-neutral-50 min-h-screen">
+          {isSubscriptionExpired() ? (
+            <div className="fixed inset-0 z-[60] bg-neutral-900/95 backdrop-blur-md flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white w-full max-w-lg rounded-[32px] overflow-hidden shadow-2xl"
+              >
+                <div className="p-8 md:p-12 text-center">
+                  <div className="w-20 h-20 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Zap className="text-brand-600" size={40} />
+                  </div>
+                  <h2 className="text-3xl font-bold mb-4">Subscription Expired</h2>
+                  <p className="text-neutral-500 mb-8 leading-relaxed">
+                    Your free trial has ended. To continue using your seller account and uploading products, please pay the monthly subscription fee.
+                  </p>
+                  
+                  <div className="bg-neutral-50 rounded-2xl p-6 mb-8 text-left">
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4">Payment Details</h3>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-neutral-600">Bank</span>
+                        <span className="font-bold">OPay</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-neutral-600">Account Number</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">9061484256</span>
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText('9061484256');
+                              alert('Account number copied!');
+                            }}
+                            className="p-1.5 hover:bg-neutral-200 rounded-lg transition"
+                          >
+                            <Copy size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-neutral-600">Account Name</span>
+                        <span className="font-bold">Efe Israel</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-4 border-t border-neutral-200">
+                        <span className="text-neutral-600">Amount</span>
+                        <span className="font-bold text-xl text-brand-600">₦2,500 / month</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <a 
+                      href={`https://wa.me/2349061484256?text=Hello, I have made the payment for my subscription for store: ${user?.store_name}`}
+                      target="_blank"
+                      className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageSquare size={20} /> Send Payment Proof
+                    </a>
+                    <button 
+                      onClick={() => setView('landing')}
+                      className="w-full py-4 text-neutral-500 font-medium hover:text-neutral-800 transition-all"
+                    >
+                      Back to Home
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          ) : null}
           <SellerSidebar />
           <main className="lg:ml-64 p-4 md:p-8">
             <header className="flex justify-between items-center mb-8">
@@ -1246,7 +1959,7 @@ export default function App() {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {MOCK_PRODUCTS.filter(p => p.seller_id === (user?.id || 'current-user') || p.seller_id === 'seller1').map((product) => (
+                  {products.filter(p => p.seller_id === (user?.id || 'current-user') || p.seller_id === 'seller1').map((product) => (
                     <div key={product.id} className="bg-white p-4 rounded-2xl border border-neutral-200 flex gap-4">
                       <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={product.image_url} className="w-full h-full object-cover" alt="" />
@@ -1314,7 +2027,10 @@ export default function App() {
                                 <div className="font-bold text-green-600">₦{((item.price || 0) * 0.4).toLocaleString()}</div>
                               </div>
                             </div>
-                            <button className="w-full bg-neutral-900 text-white py-3 rounded-2xl font-bold text-sm hover:bg-brand-600 transition-all flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => handleImportDropship(item)}
+                              className="w-full bg-neutral-900 text-white py-3 rounded-2xl font-bold text-sm hover:bg-brand-600 transition-all flex items-center justify-center gap-2"
+                            >
                               <Plus size={18} /> Import to Store
                             </button>
                           </div>
@@ -1423,10 +2139,16 @@ export default function App() {
                           <div className="flex gap-2">
                             <input 
                               readOnly 
-                              value="buysell.ng/ref/efe123" 
-                              className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-sm font-mono"
+                              value={`${window.location.origin}/ref/${user?.id || 'efe123'}`} 
+                              className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-[10px] font-mono"
                             />
-                            <button className="p-2 bg-neutral-900 text-white rounded-xl hover:bg-brand-600 transition-all">
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/ref/${user?.id || 'efe123'}`);
+                                alert('Referral link copied!');
+                              }}
+                              className="p-2 bg-neutral-900 text-white rounded-xl hover:bg-brand-600 transition-all"
+                            >
                               <Copy size={18} />
                             </button>
                           </div>
@@ -1438,7 +2160,20 @@ export default function App() {
                           </div>
                           <p className="text-xs text-brand-700 leading-relaxed">Get ₦500 for every new seller who opens a store using your link.</p>
                         </div>
-                        <button className="w-full bg-neutral-900 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-brand-600 transition-all">
+                        <button 
+                          onClick={() => {
+                            if (navigator.share) {
+                              navigator.share({
+                                title: 'Join BuySell.ng',
+                                text: 'Open your store on BuySell.ng and start selling today!',
+                                url: `${window.location.origin}/ref/${user?.id || 'efe123'}`
+                              });
+                            } else {
+                              alert('Sharing not supported on this browser');
+                            }
+                          }}
+                          className="w-full bg-neutral-900 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-brand-600 transition-all"
+                        >
                           <Share2 size={18} /> Share Link
                         </button>
                       </div>
@@ -1461,8 +2196,41 @@ export default function App() {
               </div>
             )}
 
+            {activeSellerSection === 'admin' && <AdminDashboard />}
+
             {activeSellerSection === 'settings' && (
               <div className="max-w-4xl space-y-8">
+                <div className="bg-white p-8 rounded-3xl border border-neutral-200 shadow-sm">
+                  <h3 className="text-xl font-bold mb-6">Subscription Status</h3>
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-6 bg-neutral-50 rounded-3xl">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isSubscriptionExpired() ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                        <Zap size={28} />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold">{isSubscriptionExpired() ? 'Expired' : 'Active'}</div>
+                        <div className="text-sm text-neutral-500">
+                          {isSubscriptionExpired() 
+                            ? 'Your subscription ended on ' 
+                            : 'Your next payment is due on '}
+                          <span className="font-bold text-neutral-900">
+                            {new Date(user?.subscription_expires_at || '').toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {isSubscriptionExpired() && (
+                      <a 
+                        href="https://wa.me/2349061484256?text=I want to renew my subscription"
+                        target="_blank"
+                        className="bg-brand-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-brand-700 transition-all flex items-center gap-2"
+                      >
+                        Renew Now
+                      </a>
+                    )}
+                  </div>
+                </div>
+
                 <div className="bg-white p-8 rounded-3xl border border-neutral-200">
                   <h3 className="text-xl font-heading font-bold mb-6">Seller Verification</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1920,20 +2688,20 @@ export default function App() {
                       <div className="p-2 bg-white/20 rounded-lg">
                         <NairaSign size={20} />
                       </div>
-                      <span className="font-bold">Bank Transfer Details</span>
+                      <span className="font-bold">Pay Directly to Seller</span>
                     </div>
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between opacity-80">
                         <span>Bank</span>
-                        <span className="font-bold">OPay</span>
+                        <span className="font-bold">{MOCK_SELLERS[cart[0]?.seller_id]?.bank_name || 'OPay'}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Account</span>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg">9061484256</span>
+                          <span className="font-bold text-lg">{MOCK_SELLERS[cart[0]?.seller_id]?.account_number || '9061484256'}</span>
                           <button 
                             onClick={() => {
-                              navigator.clipboard.writeText('9061484256');
+                              navigator.clipboard.writeText(MOCK_SELLERS[cart[0]?.seller_id]?.account_number || '9061484256');
                               alert('Account number copied!');
                             }}
                             className="p-1 hover:bg-white/10 rounded"
@@ -1944,11 +2712,11 @@ export default function App() {
                       </div>
                       <div className="flex justify-between opacity-80">
                         <span>Name</span>
-                        <span className="font-bold">Efe Israel</span>
+                        <span className="font-bold">{MOCK_SELLERS[cart[0]?.seller_id]?.name || 'Efe Israel'}</span>
                       </div>
                     </div>
                     <div className="mt-6 p-3 bg-white/10 rounded-xl text-[10px] leading-relaxed">
-                      Please make the transfer and upload the receipt on the right to complete your order.
+                      Please make the transfer to the seller's account above and upload the receipt to complete your order.
                     </div>
                   </div>
                 </div>

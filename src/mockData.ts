@@ -150,26 +150,46 @@ export const MOCK_DROPSHIP_CATALOG: Partial<Product>[] = [
 export const MOCK_SELLERS: Record<string, Partial<User>> = {
   'seller1': {
     id: 'seller1',
+    name: 'Efe Israel',
     store_name: 'Efe Gadgets',
     is_verified: true,
-    verification_status: 'verified'
+    verification_status: 'verified',
+    bank_name: 'OPay',
+    account_number: '9061484256',
+    subscription_status: 'active',
+    subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   },
   'seller2': {
     id: 'seller2',
+    name: 'John Doe',
     store_name: 'Lekki Electronics',
     is_verified: false,
-    verification_status: 'pending'
+    verification_status: 'pending',
+    bank_name: 'GTBank',
+    account_number: '0123456789',
+    subscription_status: 'expired',
+    subscription_expires_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   },
   'seller3': {
     id: 'seller3',
+    name: 'Jane Smith',
     store_name: 'Surulere Fashion',
     is_verified: true,
-    verification_status: 'verified'
+    verification_status: 'verified',
+    bank_name: 'Kuda',
+    account_number: '9876543210',
+    subscription_status: 'active',
+    subscription_expires_at: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
   },
   'current-user': {
     id: 'current-user',
+    name: 'Israel Efe',
     store_name: 'Efe Gadgets',
-    is_verified: false,
-    verification_status: 'unverified'
+    is_verified: true,
+    verification_status: 'verified',
+    bank_name: 'OPay',
+    account_number: '9061484256',
+    subscription_status: 'active',
+    subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
   }
 };

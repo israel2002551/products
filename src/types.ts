@@ -3,13 +3,18 @@ export type UserRole = 'buyer' | 'seller' | 'both';
 export interface User {
   id: string;
   email: string;
+  name?: string;
   first_name?: string;
   last_name?: string;
   store_name?: string;
   user_type: UserRole;
   whatsapp_number?: string;
+  account_number?: string;
+  bank_name?: string;
   is_verified?: boolean;
   verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected';
+  subscription_status?: 'active' | 'expired' | 'grace_period';
+  subscription_expires_at?: string;
   created_at: string;
 }
 
