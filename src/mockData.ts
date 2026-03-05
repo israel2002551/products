@@ -1,4 +1,4 @@
-import { Product } from './types';
+import { Product, AffiliateEarning, User } from './types';
 
 export const MOCK_PRODUCTS: Product[] = [
   {
@@ -46,7 +46,7 @@ export const MOCK_PRODUCTS: Product[] = [
     is_negotiable: true,
     image_url: 'https://images.unsplash.com/photo-1548142813-c348350df52b?w=800',
     seller_id: 'seller3',
-    status: 'active',
+    status: 'sold-out',
     has_video: true,
     product_type: 'local',
     created_at: new Date().toISOString()
@@ -86,3 +86,90 @@ export const MOCK_PRODUCTS: Product[] = [
     created_at: new Date().toISOString()
   }
 ];
+
+export const MOCK_AFFILIATE_EARNINGS: AffiliateEarning[] = [
+  {
+    id: 'aff1',
+    date: '2024-03-01',
+    product_name: 'Wireless Earbuds Pro',
+    type: 'local',
+    amount: 25000,
+    commission: 2500,
+    status: 'paid'
+  },
+  {
+    id: 'aff2',
+    date: '2024-03-02',
+    product_name: 'Smart Watch Series 7',
+    type: 'amazon',
+    amount: 150000,
+    commission: 7500,
+    status: 'pending'
+  },
+  {
+    id: 'aff3',
+    date: '2024-03-03',
+    product_name: 'Gaming Mouse RGB',
+    type: 'ebay',
+    amount: 12000,
+    commission: 600,
+    status: 'pending'
+  }
+];
+
+export const MOCK_DROPSHIP_CATALOG: Partial<Product>[] = [
+  {
+    id: 'ds1',
+    name: 'Mini Projector 4K Support',
+    price: 35000,
+    category: 'electronics',
+    image_url: 'https://images.unsplash.com/photo-1535016120720-40c646be4480?w=800',
+    product_type: 'dropship',
+    description: 'Portable mini projector for home cinema.'
+  },
+  {
+    id: 'ds2',
+    name: 'Electric Vegetable Cutter',
+    price: 8500,
+    category: 'home',
+    image_url: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=800',
+    product_type: 'dropship',
+    description: '4-in-1 handheld electric vegetable cutter set.'
+  },
+  {
+    id: 'ds3',
+    name: 'Wireless Charging Station',
+    price: 15000,
+    category: 'electronics',
+    image_url: 'https://images.unsplash.com/photo-1622445275463-afa2ab738c34?w=800',
+    product_type: 'dropship',
+    description: '3-in-1 wireless charger for iPhone, Watch, and AirPods.'
+  }
+];
+
+export const MOCK_SELLERS: Record<string, Partial<User>> = {
+  'seller1': {
+    id: 'seller1',
+    store_name: 'Efe Gadgets',
+    is_verified: true,
+    verification_status: 'verified'
+  },
+  'seller2': {
+    id: 'seller2',
+    store_name: 'Lekki Electronics',
+    is_verified: false,
+    verification_status: 'pending'
+  },
+  'seller3': {
+    id: 'seller3',
+    store_name: 'Surulere Fashion',
+    is_verified: true,
+    verification_status: 'verified'
+  },
+  'current-user': {
+    id: 'current-user',
+    store_name: 'Efe Gadgets',
+    is_verified: false,
+    verification_status: 'unverified'
+  }
+};

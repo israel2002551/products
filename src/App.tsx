@@ -33,11 +33,16 @@ import {
   MapPin,
   ShieldCheck,
   Heart,
-  Share2
+  Share2,
+  DollarSign,
+  Link,
+  ExternalLink,
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Product, CartItem, Order } from './types';
-import { MOCK_PRODUCTS } from './mockData';
+import { User, Product, CartItem, Order, AffiliateEarning } from './types';
+import { MOCK_PRODUCTS, MOCK_AFFILIATE_EARNINGS, MOCK_DROPSHIP_CATALOG, MOCK_SELLERS } from './mockData';
 import { getGeminiResponse } from './services/gemini';
 import Markdown from 'react-markdown';
 
@@ -63,7 +68,18 @@ const NairaSign = ({ size = 24, className = "" }: { size?: number, className?: s
 
 export default function App() {
   const [view, setView] = useState<'landing' | 'buyer' | 'seller'>('landing');
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>({
+    id: 'current-user',
+    email: 'israelefe093@gmail.com',
+    first_name: 'Israel',
+    last_name: 'Efe',
+    store_name: 'Efe Gadgets',
+    user_type: 'both',
+    whatsapp_number: '2349061484256',
+    is_verified: false,
+    verification_status: 'unverified',
+    created_at: new Date().toISOString()
+  });
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -440,6 +456,7 @@ export default function App() {
           { id: 'products', icon: Package, label: 'My Products' },
           { id: 'add', icon: Plus, label: 'Add Product' },
           { id: 'dropshipping', icon: Globe, label: 'Dropshipping', badge: 'NEW' },
+          { id: 'affiliate', icon: DollarSign, label: 'Affiliate' },
           { id: 'orders', icon: ShoppingCart, label: 'Orders' },
           { id: 'settings', icon: Settings, label: 'Settings' },
         ].map((item) => (
@@ -634,9 +651,21 @@ export default function App() {
                             <Globe size={12} /> Dropship
                           </span>
                         )}
+                        {(product.status === 'sold-out' || product.condition === 'sold-out') && (
+                          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
+                            <span className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg uppercase tracking-wider">
+                              Sold Out
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="p-4">
-                        <h3 className="font-medium text-sm mb-1 truncate">{product.name}</h3>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm truncate flex-1">{product.name}</h3>
+                          {MOCK_SELLERS[product.seller_id]?.is_verified && (
+                            <ShieldCheck size={14} className="text-blue-500 shrink-0" />
+                          )}
+                        </div>
                         <div className="flex items-baseline gap-2 mb-3">
                           <span className="text-lg font-bold">₦{product.price.toLocaleString()}</span>
                           {product.original_price && (
@@ -1054,7 +1083,13 @@ export default function App() {
                         <h3 className="font-medium text-sm truncate mb-1">{product.name}</h3>
                         <div className="text-brand-600 font-bold mb-2">₦{product.price.toLocaleString()}</div>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full uppercase">Active</span>
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+                            (product.status === 'sold-out' || product.condition === 'sold-out')
+                              ? 'bg-red-50 text-red-700'
+                              : 'bg-green-50 text-green-700'
+                          }`}>
+                            {(product.status === 'sold-out' || product.condition === 'sold-out') ? 'Sold Out' : 'Active'}
+                          </span>
                           {product.has_video && <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-full uppercase">Video</span>}
                         </div>
                       </div>
@@ -1063,6 +1098,302 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {activeSellerSection === 'dropshipping' && (
+              <div className="space-y-8">
+                <div className="bg-gradient-to-r from-brand-600 to-brand-800 rounded-[32px] p-8 md:p-12 text-white relative overflow-hidden">
+                  <div className="relative z-10 max-w-2xl">
+                    <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4">Global Dropshipping</h2>
+                    <p className="text-brand-100 mb-8 text-lg">Import high-demand products from AliExpress & CJ Dropshipping directly to your store. We handle the logistics, you handle the sales.</p>
+                    <div className="flex flex-wrap gap-4">
+                      <button className="bg-white text-brand-700 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-brand-50 transition-all">
+                        <Zap size={20} /> Connect AliExpress
+                      </button>
+                      <button className="bg-brand-500/30 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-brand-500/40 transition-all">
+                        <Globe size={20} /> Browse Catalog
+                      </button>
+                    </div>
+                  </div>
+                  <Globe className="absolute -right-20 -bottom-20 text-white/10 w-96 h-96" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-xl font-heading font-bold">Recommended for Nigeria</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {MOCK_DROPSHIP_CATALOG.map((item) => (
+                        <div key={item.id} className="bg-white rounded-3xl border border-neutral-200 overflow-hidden group">
+                          <div className="aspect-video relative overflow-hidden">
+                            <img src={item.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                            <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-brand-600 uppercase">
+                              Hot Item
+                            </div>
+                          </div>
+                          <div className="p-6">
+                            <h4 className="font-bold mb-2">{item.name}</h4>
+                            <p className="text-xs text-neutral-500 mb-4 line-clamp-2">{item.description}</p>
+                            <div className="flex items-center justify-between mb-6">
+                              <div>
+                                <div className="text-[10px] text-neutral-400 uppercase font-bold">Cost Price</div>
+                                <div className="font-bold text-neutral-900">₦{(item.price || 0).toLocaleString()}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[10px] text-neutral-400 uppercase font-bold">Est. Profit</div>
+                                <div className="font-bold text-green-600">₦{((item.price || 0) * 0.4).toLocaleString()}</div>
+                              </div>
+                            </div>
+                            <button className="w-full bg-neutral-900 text-white py-3 rounded-2xl font-bold text-sm hover:bg-brand-600 transition-all flex items-center justify-center gap-2">
+                              <Plus size={18} /> Import to Store
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl border border-neutral-200">
+                      <h3 className="font-heading font-bold mb-4">Dropship Stats</h3>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center p-4 bg-neutral-50 rounded-2xl">
+                          <div className="text-sm text-neutral-500">Imported Items</div>
+                          <div className="font-bold text-lg">24</div>
+                        </div>
+                        <div className="flex justify-between items-center p-4 bg-neutral-50 rounded-2xl">
+                          <div className="text-sm text-neutral-500">Total Sales</div>
+                          <div className="font-bold text-lg text-brand-600">₦142,500</div>
+                        </div>
+                        <div className="flex justify-between items-center p-4 bg-neutral-50 rounded-2xl">
+                          <div className="text-sm text-neutral-500">Pending Orders</div>
+                          <div className="font-bold text-lg text-orange-500">3</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-accent-600 p-6 rounded-3xl text-white">
+                      <TrendingUp className="mb-4" size={32} />
+                      <h3 className="font-heading font-bold mb-2">Scaling Tip</h3>
+                      <p className="text-sm text-accent-100 leading-relaxed">Focus on "Home & Kitchen" gadgets. They currently have the highest conversion rate in the Nigerian market.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSellerSection === 'affiliate' && (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { label: 'Total Earnings', value: '₦12,450', icon: DollarSign, color: 'bg-green-500' },
+                    { label: 'Pending Payout', value: '₦8,100', icon: TrendingUp, color: 'bg-blue-500' },
+                    { label: 'Total Referrals', value: '142', icon: UserIcon, color: 'bg-purple-500' },
+                  ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-sm">
+                      <div className={`w-12 h-12 rounded-2xl ${stat.color} text-white flex items-center justify-center mb-4`}>
+                        <stat.icon size={24} />
+                      </div>
+                      <div className="text-2xl font-bold mb-1">{stat.value}</div>
+                      <div className="text-neutral-500 text-xs uppercase tracking-wider font-bold">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white rounded-3xl border border-neutral-200 overflow-hidden">
+                      <div className="p-6 border-b border-neutral-200 flex justify-between items-center">
+                        <h3 className="font-heading font-bold">Recent Earnings</h3>
+                        <button className="text-brand-600 text-sm font-bold hover:underline">Download Report</button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-neutral-50 text-neutral-500 text-[10px] uppercase tracking-wider font-bold">
+                            <tr>
+                              <th className="px-6 py-4">Date</th>
+                              <th className="px-6 py-4">Product</th>
+                              <th className="px-6 py-4">Source</th>
+                              <th className="px-6 py-4">Commission</th>
+                              <th className="px-6 py-4">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-100">
+                            {MOCK_AFFILIATE_EARNINGS.map((earning) => (
+                              <tr key={earning.id} className="hover:bg-neutral-50 transition-colors">
+                                <td className="px-6 py-4 text-sm text-neutral-500">{new Date(earning.date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 font-medium text-sm">{earning.product_name}</td>
+                                <td className="px-6 py-4">
+                                  <span className="px-2 py-1 bg-neutral-100 rounded-lg text-[10px] font-bold uppercase text-neutral-600">
+                                    {earning.type}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 font-bold text-brand-600 text-sm">₦{earning.commission.toLocaleString()}</td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                                    earning.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                  }`}>
+                                    {earning.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-white p-8 rounded-3xl border border-neutral-200">
+                      <h3 className="font-heading font-bold mb-6">Affiliate Links</h3>
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Your Referral Link</label>
+                          <div className="flex gap-2">
+                            <input 
+                              readOnly 
+                              value="buysell.ng/ref/efe123" 
+                              className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2 text-sm font-mono"
+                            />
+                            <button className="p-2 bg-neutral-900 text-white rounded-xl hover:bg-brand-600 transition-all">
+                              <Copy size={18} />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-brand-50 rounded-2xl border border-brand-100">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Zap size={18} className="text-brand-600" />
+                            <span className="font-bold text-sm text-brand-900">Refer & Earn</span>
+                          </div>
+                          <p className="text-xs text-brand-700 leading-relaxed">Get ₦500 for every new seller who opens a store using your link.</p>
+                        </div>
+                        <button className="w-full bg-neutral-900 text-white py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-brand-600 transition-all">
+                          <Share2 size={18} /> Share Link
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-neutral-900 p-8 rounded-3xl text-white">
+                      <h3 className="font-heading font-bold mb-4">External Programs</h3>
+                      <p className="text-sm text-neutral-400 mb-6">Connect your Amazon and eBay affiliate accounts to track all earnings in one place.</p>
+                      <div className="space-y-3">
+                        <button className="w-full bg-white/10 hover:bg-white/20 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                          <ExternalLink size={16} /> Connect Amazon
+                        </button>
+                        <button className="w-full bg-white/10 hover:bg-white/20 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                          <ExternalLink size={16} /> Connect eBay
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSellerSection === 'settings' && (
+              <div className="max-w-4xl space-y-8">
+                <div className="bg-white p-8 rounded-3xl border border-neutral-200">
+                  <h3 className="text-xl font-heading font-bold mb-6">Seller Verification</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div className="p-6 bg-neutral-50 rounded-3xl border border-neutral-100">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${
+                            user?.verification_status === 'verified' ? 'bg-green-500' : 
+                            user?.verification_status === 'pending' ? 'bg-orange-500' : 'bg-neutral-400'
+                          }`}>
+                            <ShieldCheck size={24} />
+                          </div>
+                          <div>
+                            <div className="font-bold">Status: {user?.verification_status?.toUpperCase() || 'UNVERIFIED'}</div>
+                            <p className="text-xs text-neutral-500">Verified sellers get 40% more sales on average.</p>
+                          </div>
+                        </div>
+                        
+                        {user?.verification_status !== 'verified' && (
+                          <div className="space-y-4 mt-6">
+                            <div className="p-4 bg-white rounded-2xl border border-neutral-200">
+                              <h4 className="text-sm font-bold mb-2">1. Upload Government ID</h4>
+                              <p className="text-xs text-neutral-500 mb-4">NIN, Driver's License, or International Passport.</p>
+                              <div className="flex items-center justify-center w-full">
+                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-neutral-300 border-dashed rounded-2xl cursor-pointer bg-neutral-50 hover:bg-neutral-100 transition-all">
+                                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <Plus className="w-8 h-8 mb-3 text-neutral-400" />
+                                    <p className="text-xs text-neutral-500">Click to upload ID</p>
+                                  </div>
+                                  <input type="file" className="hidden" />
+                                </label>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-white rounded-2xl border border-neutral-200">
+                              <h4 className="text-sm font-bold mb-2">2. Connect Social Media</h4>
+                              <p className="text-xs text-neutral-500 mb-4">Instagram, Twitter, or Facebook for identity verification.</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <button className="py-2 bg-neutral-100 rounded-xl text-xs font-bold hover:bg-neutral-200 transition-all">Instagram</button>
+                                <button className="py-2 bg-neutral-100 rounded-xl text-xs font-bold hover:bg-neutral-200 transition-all">Twitter</button>
+                                <button className="py-2 bg-neutral-100 rounded-xl text-xs font-bold hover:bg-neutral-200 transition-all">Facebook</button>
+                              </div>
+                            </div>
+
+                            <button 
+                              onClick={() => {
+                                if (user) {
+                                  setUser({ ...user, verification_status: 'pending' });
+                                }
+                              }}
+                              className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold text-sm hover:bg-brand-700 transition-all shadow-lg"
+                            >
+                              Submit for Verification
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="bg-accent-50 p-6 rounded-3xl border border-accent-100">
+                        <h4 className="font-bold text-accent-900 mb-4 flex items-center gap-2">
+                          <Zap size={18} /> Why get verified?
+                        </h4>
+                        <ul className="space-y-3">
+                          {[
+                            'Verified Seller badge on all listings',
+                            'Higher ranking in search results',
+                            'Access to Dropshipping module',
+                            'Lower commission on affiliate sales',
+                            'Priority customer support'
+                          ].map((benefit, i) => (
+                            <li key={i} className="flex items-start gap-3 text-sm text-accent-800">
+                              <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
+                              <span>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="bg-neutral-900 p-6 rounded-3xl text-white">
+                        <h4 className="font-bold mb-2">Store Settings</h4>
+                        <p className="text-xs text-neutral-400 mb-6">Update your public store information.</p>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1 block">Store Name</label>
+                            <input type="text" defaultValue={user?.store_name} className="w-full bg-white/10 border-none rounded-xl px-4 py-2 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1 block">WhatsApp Number</label>
+                            <input type="text" defaultValue={user?.whatsapp_number} className="w-full bg-white/10 border-none rounded-xl px-4 py-2 text-sm" />
+                          </div>
+                          <button className="w-full bg-white text-neutral-900 py-3 rounded-xl font-bold text-sm hover:bg-neutral-100 transition-all">
+                            Save Changes
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </main>
         </div>
       )}
@@ -1253,10 +1584,14 @@ export default function App() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-bold">Israel Efe</span>
-                            <ShieldCheck size={16} className="text-accent-400" />
+                            <span className="font-bold">{MOCK_SELLERS[selectedProduct.seller_id]?.store_name || 'Israel Efe'}</span>
+                            {MOCK_SELLERS[selectedProduct.seller_id]?.is_verified && (
+                              <ShieldCheck size={16} className="text-accent-400" />
+                            )}
                           </div>
-                          <div className="text-xs opacity-60">Verified Seller • 4.8 Rating</div>
+                          <div className="text-xs opacity-60">
+                            {MOCK_SELLERS[selectedProduct.seller_id]?.is_verified ? 'Verified Seller' : 'Unverified Seller'} • 4.8 Rating
+                          </div>
                         </div>
                       </div>
                       <button className="text-xs font-bold uppercase tracking-wider text-accent-400 hover:text-accent-300">

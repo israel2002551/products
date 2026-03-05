@@ -8,6 +8,8 @@ export interface User {
   store_name?: string;
   user_type: UserRole;
   whatsapp_number?: string;
+  is_verified?: boolean;
+  verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected';
   created_at: string;
 }
 
@@ -17,13 +19,13 @@ export interface Product {
   price: number;
   original_price?: number;
   category: string;
-  condition: 'new' | 'used-like-new' | 'used-good' | 'used-fair';
+  condition: 'new' | 'used-like-new' | 'used-good' | 'used-fair' | 'sold-out';
   description: string;
   location: string;
   is_negotiable: boolean;
   image_url: string;
   seller_id: string;
-  status: 'active' | 'inactive' | 'deleted';
+  status: 'active' | 'inactive' | 'deleted' | 'sold-out';
   has_video?: boolean;
   video_url?: string;
   product_type: 'local' | 'dropship';
