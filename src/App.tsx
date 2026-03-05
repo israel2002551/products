@@ -28,13 +28,38 @@ import {
   Send,
   CheckCircle2,
   Filter,
-  Check
+  Check,
+  Copy,
+  MapPin,
+  ShieldCheck,
+  Heart,
+  Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Product, CartItem } from './types';
+import { User, Product, CartItem, Order } from './types';
 import { MOCK_PRODUCTS } from './mockData';
 import { getGeminiResponse } from './services/gemini';
 import Markdown from 'react-markdown';
+
+const NairaSign = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M6 3v18" />
+    <path d="M18 3v18" />
+    <path d="M6 12h12" />
+    <path d="M6 7h12" />
+    <path d="M6 17h12" />
+  </svg>
+);
 
 export default function App() {
   const [view, setView] = useState<'landing' | 'buyer' | 'seller'>('landing');
@@ -49,6 +74,66 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [activeSellerSection, setActiveSellerSection] = useState('overview');
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+    name: '',
+    price: 0,
+    category: 'phones',
+    condition: 'new',
+    description: '',
+    location: '',
+    is_negotiable: false,
+    product_type: 'local'
+  });
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [productVideo, setProductVideo] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [deliveryDetails, setDeliveryDetails] = useState({
+    name: '',
+    phone: '',
+    whatsapp: '',
+    state: '',
+    city: '',
+    address: ''
+  });
+  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([
+    {
+      id: 'ord1',
+      order_number: 'ORD-123456',
+      buyer_id: 'buyer1',
+      seller_id: 'seller1',
+      total_amount: 45000,
+      status: 'pending',
+      delivery_name: 'Chinedu Okafor',
+      delivery_phone: '08012345678',
+      delivery_whatsapp: '08012345678',
+      delivery_state: 'Lagos',
+      delivery_city: 'Ikeja',
+      delivery_address: '123 Allen Avenue',
+      payment_receipt_url: 'https://picsum.photos/seed/receipt1/400/600',
+      created_at: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 'ord2',
+      order_number: 'ORD-789012',
+      buyer_id: 'buyer2',
+      seller_id: 'seller1',
+      total_amount: 120000,
+      status: 'paid',
+      delivery_name: 'Amina Bello',
+      delivery_phone: '09087654321',
+      delivery_whatsapp: '09087654321',
+      delivery_state: 'Abuja',
+      delivery_city: 'Garki',
+      delivery_address: '45 Garki Road',
+      payment_receipt_url: 'https://picsum.photos/seed/receipt2/400/600',
+      created_at: new Date(Date.now() - 172800000).toISOString()
+    }
+  ]);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -111,6 +196,113 @@ export default function App() {
     const matchesCondition = selectedCondition === 'all' || product.condition === selectedCondition;
     return matchesSearch && matchesCategory && matchesCondition;
   });
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploading(true);
+    
+    // In a real app, we would upload files to a storage service (like Supabase Storage)
+    // For this demo, we'll use URL.createObjectURL to simulate the uploaded URLs
+    const imageUrl = productImage ? URL.createObjectURL(productImage) : 'https://via.placeholder.com/800';
+    const videoUrl = productVideo ? URL.createObjectURL(productVideo) : undefined;
+
+    const product: Product = {
+      ...(newProduct as Product),
+      id: Math.random().toString(36).substr(2, 9),
+      image_url: imageUrl,
+      video_url: videoUrl,
+      has_video: !!videoUrl,
+      seller_id: user?.id || 'current-user',
+      status: 'active',
+      created_at: new Date().toISOString()
+    };
+
+    // Update local state (mocking DB insert)
+    // We would normally call an API here
+    MOCK_PRODUCTS.unshift(product);
+    
+    setIsUploading(false);
+    setActiveSellerSection('products');
+    setNewProduct({
+      name: '',
+      price: 0,
+      category: 'phones',
+      condition: 'new',
+      description: '',
+      location: '',
+      is_negotiable: false,
+      product_type: 'local'
+    });
+    setProductImage(null);
+    setProductVideo(null);
+  };
+
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentReceipt) {
+      alert('Please upload your payment receipt!');
+      return;
+    }
+    
+    setIsSubmittingOrder(true);
+    
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const order: Order = {
+      id: Math.random().toString(36).substr(2, 9),
+      order_number: `ORD-${Date.now().toString().slice(-6)}`,
+      buyer_id: user?.id || 'guest',
+      seller_id: cart[0].seller_id,
+      total_amount: cart.reduce((a, b) => a + (b.price * b.quantity), 0),
+      status: 'pending',
+      delivery_name: deliveryDetails.name,
+      delivery_phone: deliveryDetails.phone,
+      delivery_whatsapp: deliveryDetails.whatsapp,
+      delivery_state: deliveryDetails.state,
+      delivery_city: deliveryDetails.city,
+      delivery_address: deliveryDetails.address,
+      payment_receipt_url: URL.createObjectURL(paymentReceipt),
+      created_at: new Date().toISOString()
+    };
+
+    setOrders(prev => [order, ...prev]);
+    console.log('Order Created:', order);
+    
+    setCart([]);
+    setIsCheckoutOpen(false);
+    setIsSubmittingOrder(false);
+    setPaymentReceipt(null);
+    setDeliveryDetails({
+      name: '',
+      phone: '',
+      whatsapp: '',
+      state: '',
+      city: '',
+      address: ''
+    });
+    
+    alert(`Order ${order.order_number} submitted! The seller will contact you on WhatsApp shortly.`);
+  };
+
+  const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+  };
+
+  const getStatusColor = (status: Order['status']) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-100 text-amber-700';
+      case 'paid': return 'bg-blue-100 text-blue-700';
+      case 'processing': return 'bg-purple-100 text-purple-700';
+      case 'shipped': return 'bg-indigo-100 text-indigo-700';
+      case 'delivered': return 'bg-green-100 text-green-700';
+      case 'cancelled': return 'bg-red-100 text-red-700';
+      default: return 'bg-neutral-100 text-neutral-700';
+    }
+  };
 
   const LandingPage = () => (
     <div className="fixed inset-0 z-50 bg-gradient-to-br from-neutral-900 via-neutral-800 to-brand-900 overflow-hidden">
@@ -406,45 +598,63 @@ export default function App() {
             
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                {filteredProducts.map((product) => (
-                  <motion.div 
-                    key={product.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    whileHover={{ y: -5 }}
-                    className="bg-white rounded-2xl border border-neutral-200 overflow-hidden group product-card-hover"
-                  >
-                    <div className="relative aspect-square overflow-hidden">
-                      <img src={product.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
-                      {product.has_video && (
-                        <span className="absolute top-2 right-2 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1">
-                          <Video size={12} /> Video
-                        </span>
-                      )}
-                      {product.product_type === 'dropship' && (
-                        <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1">
-                          <Globe size={12} /> Dropship
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-medium text-sm mb-1 truncate">{product.name}</h3>
-                      <div className="flex items-baseline gap-2 mb-3">
-                        <span className="text-lg font-bold">₦{product.price.toLocaleString()}</span>
-                        {product.original_price && (
-                          <span className="text-xs text-neutral-400 line-through">₦{product.original_price.toLocaleString()}</span>
+                  {filteredProducts.map((product) => (
+                    <motion.div 
+                      key={product.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ y: -5 }}
+                      onClick={() => setSelectedProduct(product)}
+                      className="bg-white rounded-2xl border border-neutral-200 overflow-hidden group product-card-hover cursor-pointer"
+                    >
+                      <div className="relative aspect-square overflow-hidden">
+                        {product.video_url ? (
+                          <video 
+                            src={product.video_url} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            muted
+                            loop
+                            onMouseEnter={(e) => e.currentTarget.play()}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.pause();
+                              e.currentTarget.currentTime = 0;
+                            }}
+                          />
+                        ) : (
+                          <img src={product.image_url} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="" />
+                        )}
+                        {product.has_video && (
+                          <span className="absolute top-2 right-2 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1">
+                            <Video size={12} /> Video
+                          </span>
+                        )}
+                        {product.product_type === 'dropship' && (
+                          <span className="absolute bottom-2 left-2 bg-orange-500 text-white text-[10px] px-2 py-1 rounded-full flex items-center gap-1">
+                            <Globe size={12} /> Dropship
+                          </span>
                         )}
                       </div>
-                      <button 
-                        onClick={() => addToCart(product)}
-                        className="w-full bg-neutral-900 text-white py-2 rounded-xl text-sm font-medium hover:bg-brand-600 transition-colors"
-                      >
-                        Add to Cart
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="p-4">
+                        <h3 className="font-medium text-sm mb-1 truncate">{product.name}</h3>
+                        <div className="flex items-baseline gap-2 mb-3">
+                          <span className="text-lg font-bold">₦{product.price.toLocaleString()}</span>
+                          {product.original_price && (
+                            <span className="text-xs text-neutral-400 line-through">₦{product.original_price.toLocaleString()}</span>
+                          )}
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
+                          className="w-full bg-neutral-900 text-white py-2 rounded-xl text-sm font-medium hover:bg-brand-600 transition-colors"
+                        >
+                          Add to Cart
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
               </div>
             ) : (
               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-neutral-300">
@@ -483,63 +693,376 @@ export default function App() {
               </button>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-              {[
-                { label: 'Total Revenue', value: '₦1,250,000', icon: ShoppingBag, color: 'bg-blue-500' },
-                { label: 'Total Orders', value: '48', icon: ShoppingBag, color: 'bg-green-500' },
-                { label: 'Active Products', value: '12', icon: Package, color: 'bg-purple-500' },
-                { label: 'Store Views', value: '2.4k', icon: Flame, color: 'bg-orange-500' },
-              ].map((stat, i) => (
-                <div key={i} className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-3 rounded-xl text-white ${stat.color}`}>
-                      <stat.icon size={24} />
+            {activeSellerSection === 'overview' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+                  {[
+                    { label: 'Total Revenue', value: `₦${orders.filter(o => o.status !== 'cancelled').reduce((a, b) => a + b.total_amount, 0).toLocaleString()}`, icon: ShoppingBag, color: 'bg-blue-500' },
+                    { label: 'Active Orders', value: orders.filter(o => ['pending', 'paid', 'processing'].includes(o.status)).length.toString(), icon: Package, color: 'bg-green-500' },
+                    { label: 'Active Products', value: '12', icon: Package, color: 'bg-purple-500' },
+                    { label: 'Store Views', value: '2.4k', icon: Flame, color: 'bg-orange-500' },
+                  ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className={`p-3 rounded-xl text-white ${stat.color}`}>
+                          <stat.icon size={24} />
+                        </div>
+                        <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">+12%</span>
+                      </div>
+                      <div className="text-2xl font-bold mb-1">{stat.value}</div>
+                      <div className="text-neutral-500 text-xs uppercase tracking-wider font-medium">{stat.label}</div>
                     </div>
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">+12%</span>
-                  </div>
-                  <div className="text-2xl font-bold mb-1">{stat.value}</div>
-                  <div className="text-neutral-500 text-xs uppercase tracking-wider font-medium">{stat.label}</div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-neutral-200 flex justify-between items-center">
-                <h2 className="font-heading font-bold">Recent Orders</h2>
-                <button className="text-brand-600 text-sm font-medium hover:underline">View All</button>
+                <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-neutral-200 flex justify-between items-center">
+                    <h2 className="font-heading font-bold">Recent Orders</h2>
+                    <button 
+                      onClick={() => setActiveSellerSection('orders')}
+                      className="text-brand-600 text-sm font-medium hover:underline"
+                    >
+                      View All
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-neutral-50 text-neutral-500 text-[10px] uppercase tracking-wider font-bold">
+                        <tr>
+                          <th className="px-6 py-4">Order ID</th>
+                          <th className="px-6 py-4">Customer</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4">Amount</th>
+                          <th className="px-6 py-4">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {orders.slice(0, 5).map((order) => (
+                          <tr key={order.id} className="hover:bg-neutral-50 transition-colors">
+                            <td className="px-6 py-4 font-mono text-sm">#{order.order_number}</td>
+                            <td className="px-6 py-4">
+                              <div className="text-sm font-medium">{order.delivery_name}</div>
+                              <div className="text-xs text-neutral-400">{order.delivery_city}, {order.delivery_state}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(order.status)}`}>
+                                {order.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-bold text-sm">₦{order.total_amount.toLocaleString()}</td>
+                            <td className="px-6 py-4">
+                              <button 
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setActiveSellerSection('orders');
+                                }}
+                                className="text-brand-600 hover:text-brand-700 font-medium text-sm"
+                              >
+                                Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {activeSellerSection === 'add' && (
+              <div className="max-w-3xl mx-auto">
+                <div className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-8">
+                  <h2 className="text-2xl font-heading font-bold mb-6">Add New Product</h2>
+                  <form onSubmit={handleAddProduct} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-700">Product Name</label>
+                        <input 
+                          type="text" 
+                          required
+                          className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                          value={newProduct.name}
+                          onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                          placeholder="e.g. iPhone 15 Pro Max"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-700">Price (₦)</label>
+                        <input 
+                          type="number" 
+                          required
+                          className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                          value={newProduct.price}
+                          onChange={(e) => setNewProduct({...newProduct, price: Number(e.target.value)})}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-700">Category</label>
+                        <select 
+                          className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                          value={newProduct.category}
+                          onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
+                        >
+                          <option value="phones">Phones</option>
+                          <option value="electronics">Electronics</option>
+                          <option value="fashion">Fashion</option>
+                          <option value="home">Home</option>
+                          <option value="beauty">Beauty</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-700">Condition</label>
+                        <select 
+                          className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                          value={newProduct.condition}
+                          onChange={(e) => setNewProduct({...newProduct, condition: e.target.value as any})}
+                        >
+                          <option value="new">New</option>
+                          <option value="used-like-new">Used - Like New</option>
+                          <option value="used-good">Used - Good</option>
+                          <option value="used-fair">Used - Fair</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-neutral-700">Description</label>
+                      <textarea 
+                        required
+                        rows={4}
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                        value={newProduct.description}
+                        onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
+                        placeholder="Tell buyers about your product..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <label className="text-sm font-medium text-neutral-700 block">Product Image</label>
+                        <div className="relative group">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            required
+                            onChange={(e) => setProductImage(e.target.files?.[0] || null)}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                          />
+                          <div className={`w-full h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${productImage ? 'border-brand-500 bg-brand-50' : 'border-neutral-200 bg-neutral-50 group-hover:border-brand-300'}`}>
+                            {productImage ? (
+                              <div className="text-center">
+                                <CheckCircle2 className="text-brand-600 mx-auto mb-1" size={24} />
+                                <span className="text-xs text-brand-700 font-medium truncate max-w-[150px] block">{productImage.name}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Plus className="text-neutral-400 mb-1" size={24} />
+                                <span className="text-xs text-neutral-500">Upload Image</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <label className="text-sm font-medium text-neutral-700 block">Product Video (Optional)</label>
+                        <div className="relative group">
+                          <input 
+                            type="file" 
+                            accept="video/*"
+                            onChange={(e) => setProductVideo(e.target.files?.[0] || null)}
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                          />
+                          <div className={`w-full h-32 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${productVideo ? 'border-accent-500 bg-accent-50' : 'border-neutral-200 bg-neutral-50 group-hover:border-accent-300'}`}>
+                            {productVideo ? (
+                              <div className="text-center">
+                                <Video className="text-accent-600 mx-auto mb-1" size={24} />
+                                <span className="text-xs text-accent-700 font-medium truncate max-w-[150px] block">{productVideo.name}</span>
+                              </div>
+                            ) : (
+                              <>
+                                <Video className="text-neutral-400 mb-1" size={24} />
+                                <span className="text-xs text-neutral-500">Upload Video</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-neutral-400">Short clips help sell faster!</p>
+                      </div>
+                    </div>
+
+                    <button 
+                      type="submit"
+                      disabled={isUploading}
+                      className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isUploading ? 'Uploading...' : 'Publish Product'}
+                    </button>
+                  </form>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-neutral-50 text-neutral-500 text-[10px] uppercase tracking-wider font-bold">
-                    <tr>
-                      <th className="px-6 py-4">Order ID</th>
-                      <th className="px-6 py-4">Customer</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Amount</th>
-                      <th className="px-6 py-4">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {[1, 2, 3].map((_, i) => (
-                      <tr key={i} className="hover:bg-neutral-50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm">#ORD-2024-00{i+1}</td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium">Chinedu Okafor</div>
-                          <div className="text-xs text-neutral-400">Lagos, Nigeria</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase">Pending</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-sm">₦45,000</td>
-                        <td className="px-6 py-4">
-                          <button className="text-brand-600 hover:text-brand-700 font-medium text-sm">Details</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            )}
+
+            {activeSellerSection === 'orders' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-heading font-bold">Order Management</h2>
+                  <div className="flex gap-2">
+                    <select className="bg-white border border-neutral-200 rounded-xl px-3 py-2 text-sm outline-none">
+                      <option>All Orders</option>
+                      <option>Pending</option>
+                      <option>Paid</option>
+                      <option>Shipped</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Orders List */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {orders.length > 0 ? (
+                      orders.map((order) => (
+                        <div 
+                          key={order.id} 
+                          onClick={() => setSelectedOrder(order)}
+                          className={`bg-white p-5 rounded-2xl border transition-all cursor-pointer ${selectedOrder?.id === order.id ? 'border-brand-500 ring-1 ring-brand-500 shadow-md' : 'border-neutral-200 hover:border-neutral-300'}`}
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-1">Order #{order.order_number}</div>
+                              <div className="font-bold text-neutral-800">{order.delivery_name}</div>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <div className="text-sm text-neutral-500">
+                              {new Date(order.created_at).toLocaleDateString()} • {order.delivery_city}
+                            </div>
+                            <div className="font-bold text-brand-600">₦{order.total_amount.toLocaleString()}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="bg-white rounded-2xl border border-neutral-200 p-12 text-center">
+                        <p className="text-neutral-500">No orders yet.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Order Details Sidebar */}
+                  <div className="lg:col-span-1">
+                    {selectedOrder ? (
+                      <div className="bg-white rounded-3xl border border-neutral-200 shadow-sm p-6 sticky top-24">
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-heading font-bold">Order Details</h3>
+                          <button onClick={() => setSelectedOrder(null)} className="text-neutral-400 hover:text-neutral-600">
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        <div className="space-y-6">
+                          <div className="p-4 bg-neutral-50 rounded-2xl">
+                            <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">Status Control</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {(['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled'] as Order['status'][]).map((status) => (
+                                <button
+                                  key={status}
+                                  onClick={() => updateOrderStatus(selectedOrder.id, status)}
+                                  className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${selectedOrder.status === status ? getStatusColor(status) + ' ring-1 ring-current' : 'bg-white border border-neutral-200 text-neutral-500 hover:bg-neutral-100'}`}
+                                >
+                                  {status}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Customer Info</div>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-3 text-sm">
+                                <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500">
+                                  <UserIcon size={16} />
+                                </div>
+                                <span>{selectedOrder.delivery_name}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <div className="w-8 h-8 bg-neutral-100 rounded-lg flex items-center justify-center text-neutral-500">
+                                  <Truck size={16} />
+                                </div>
+                                <span className="text-xs leading-tight">{selectedOrder.delivery_address}, {selectedOrder.delivery_city}, {selectedOrder.delivery_state}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Actions</div>
+                            <div className="grid grid-cols-1 gap-2">
+                              <a 
+                                href={`https://wa.me/${selectedOrder.delivery_whatsapp.replace(/\D/g, '')}?text=Hello ${selectedOrder.delivery_name}, I'm contacting you regarding your order #${selectedOrder.order_number} on BUYSELL Nigeria.`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full bg-[#25D366] text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+                              >
+                                <MessageSquare size={18} /> Chat on WhatsApp
+                              </a>
+                              <button 
+                                onClick={() => window.open(selectedOrder.payment_receipt_url, '_blank')}
+                                className="w-full bg-neutral-100 text-neutral-700 py-3 rounded-xl font-bold text-sm hover:bg-neutral-200 transition-all"
+                              >
+                                View Payment Receipt
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-200 p-12 text-center">
+                        <Package className="mx-auto text-neutral-300 mb-4" size={48} />
+                        <p className="text-neutral-400 text-sm">Select an order to view details and manage status</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {activeSellerSection === 'products' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-heading font-bold">My Products</h2>
+                  <button 
+                    onClick={() => setActiveSellerSection('add')}
+                    className="bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
+                  >
+                    <Plus size={18} /> Add New
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {MOCK_PRODUCTS.filter(p => p.seller_id === (user?.id || 'current-user') || p.seller_id === 'seller1').map((product) => (
+                    <div key={product.id} className="bg-white p-4 rounded-2xl border border-neutral-200 flex gap-4">
+                      <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={product.image_url} className="w-full h-full object-cover" alt="" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm truncate mb-1">{product.name}</h3>
+                        <div className="text-brand-600 font-bold mb-2">₦{product.price.toLocaleString()}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] font-bold rounded-full uppercase">Active</span>
+                          {product.has_video && <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-full uppercase">Video</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </main>
         </div>
       )}
@@ -636,6 +1159,137 @@ export default function App() {
         </motion.button>
       </div>
 
+      {/* Product Detail Modal */}
+      <AnimatePresence>
+        {selectedProduct && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedProduct(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-5xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+            >
+              <button 
+                onClick={() => setSelectedProduct(null)}
+                className="absolute top-6 right-6 z-10 p-2 bg-white/80 backdrop-blur-md rounded-full text-neutral-900 hover:bg-white transition-all shadow-lg"
+              >
+                <X size={24} />
+              </button>
+
+              {/* Media Gallery */}
+              <div className="w-full md:w-1/2 h-[400px] md:h-auto bg-neutral-100 relative group">
+                {selectedProduct.video_url ? (
+                  <video 
+                    src={selectedProduct.video_url} 
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    controls
+                  />
+                ) : (
+                  <img src={selectedProduct.image_url} className="w-full h-full object-cover" alt="" />
+                )}
+                <div className="absolute bottom-6 left-6 flex gap-2">
+                  <button className="p-3 bg-white/90 backdrop-blur-md rounded-2xl text-neutral-900 shadow-xl hover:bg-white transition-all">
+                    <Share2 size={20} />
+                  </button>
+                  <button className="p-3 bg-white/90 backdrop-blur-md rounded-2xl text-neutral-900 shadow-xl hover:bg-white transition-all">
+                    <Heart size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Product Info */}
+              <div className="flex-1 p-8 md:p-12 overflow-y-auto">
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="px-3 py-1 bg-brand-50 text-brand-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                      {selectedProduct.category}
+                    </span>
+                    <span className="px-3 py-1 bg-accent-50 text-accent-600 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                      {selectedProduct.condition.replace(/-/g, ' ')}
+                    </span>
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-heading font-bold mb-4 leading-tight">{selectedProduct.name}</h2>
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl font-bold text-brand-600">₦{selectedProduct.price.toLocaleString()}</div>
+                    {selectedProduct.original_price && (
+                      <div className="text-lg text-neutral-400 line-through">₦{selectedProduct.original_price.toLocaleString()}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-brand-600 shadow-sm">
+                      <MapPin size={24} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Location</div>
+                      <div className="font-medium">{selectedProduct.location || 'Lagos, Nigeria'}</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-3">Description</h3>
+                    <p className="text-neutral-600 leading-relaxed">
+                      {selectedProduct.description}
+                    </p>
+                  </div>
+
+                  <div className="p-6 bg-neutral-900 rounded-3xl text-white">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white">
+                          <UserIcon size={24} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">Israel Efe</span>
+                            <ShieldCheck size={16} className="text-accent-400" />
+                          </div>
+                          <div className="text-xs opacity-60">Verified Seller • 4.8 Rating</div>
+                        </div>
+                      </div>
+                      <button className="text-xs font-bold uppercase tracking-wider text-accent-400 hover:text-accent-300">
+                        View Store
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <a 
+                        href={`https://wa.me/2349061484256?text=Hello, I'm interested in your ${selectedProduct.name} listed for ₦${selectedProduct.price.toLocaleString()}. Is it still available?`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 bg-[#25D366] text-white py-4 rounded-2xl font-bold text-sm hover:bg-[#20bd5a] transition-all"
+                      >
+                        <MessageSquare size={18} /> Haggle
+                      </a>
+                      <button 
+                        onClick={() => {
+                          addToCart(selectedProduct);
+                          setSelectedProduct(null);
+                        }}
+                        className="flex items-center justify-center gap-2 bg-white text-neutral-900 py-4 rounded-2xl font-bold text-sm hover:bg-neutral-100 transition-all"
+                      >
+                        <ShoppingCart size={18} /> Add to Cart
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Cart Drawer */}
       <AnimatePresence>
         {isCartOpen && (
@@ -691,13 +1345,226 @@ export default function App() {
                     <span className="text-neutral-500">Subtotal</span>
                     <span className="font-bold text-lg">₦{cart.reduce((a, b) => a + (b.price * b.quantity), 0).toLocaleString()}</span>
                   </div>
-                  <button className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all">
+                  <button 
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      setIsCheckoutOpen(true);
+                    }}
+                    className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all"
+                  >
                     Checkout Now
                   </button>
                 </div>
               )}
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Checkout Modal */}
+      <AnimatePresence>
+        {isCheckoutOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCheckoutOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]"
+            >
+              {/* Left Side: Order Summary & Payment */}
+              <div className="w-full md:w-5/12 bg-neutral-50 p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-neutral-200">
+                <h3 className="text-xl font-heading font-bold mb-6">Order Summary</h3>
+                <div className="space-y-4 mb-8">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center text-sm">
+                      <div className="flex-1 pr-4">
+                        <span className="font-medium text-neutral-800">{item.name}</span>
+                        <span className="text-neutral-500 ml-2">x{item.quantity}</span>
+                      </div>
+                      <span className="font-bold">₦{(item.price * item.quantity).toLocaleString()}</span>
+                    </div>
+                  ))}
+                  <div className="pt-4 border-t border-neutral-200 flex justify-between items-center">
+                    <span className="font-bold text-lg">Total</span>
+                    <span className="font-bold text-2xl text-brand-600">
+                      ₦{cart.reduce((a, b) => a + (b.price * b.quantity), 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-brand-600 rounded-2xl p-6 text-white shadow-lg shadow-brand-500/20">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-white/20 rounded-lg">
+                      <NairaSign size={20} />
+                    </div>
+                    <span className="font-bold">Bank Transfer Details</span>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between opacity-80">
+                      <span>Bank</span>
+                      <span className="font-bold">OPay</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Account</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">9061484256</span>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText('9061484256');
+                            alert('Account number copied!');
+                          }}
+                          className="p-1 hover:bg-white/10 rounded"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between opacity-80">
+                      <span>Name</span>
+                      <span className="font-bold">Efe Israel</span>
+                    </div>
+                  </div>
+                  <div className="mt-6 p-3 bg-white/10 rounded-xl text-[10px] leading-relaxed">
+                    Please make the transfer and upload the receipt on the right to complete your order.
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side: Delivery Form */}
+              <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-heading font-bold">Delivery Details</h3>
+                  <button onClick={() => setIsCheckoutOpen(false)} className="md:hidden p-2 hover:bg-neutral-100 rounded-lg">
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCheckoutSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                        value={deliveryDetails.name}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, name: e.target.value})}
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        required
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                        value={deliveryDetails.phone}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, phone: e.target.value})}
+                        placeholder="080..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">WhatsApp Number</label>
+                    <input 
+                      type="tel" 
+                      required
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                      value={deliveryDetails.whatsapp}
+                      onChange={(e) => setDeliveryDetails({...deliveryDetails, whatsapp: e.target.value})}
+                      placeholder="Same as phone or different"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">State</label>
+                      <input 
+                        type="text" 
+                        required
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                        value={deliveryDetails.state}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, state: e.target.value})}
+                        placeholder="Lagos"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">City</label>
+                      <input 
+                        type="text" 
+                        required
+                        className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                        value={deliveryDetails.city}
+                        onChange={(e) => setDeliveryDetails({...deliveryDetails, city: e.target.value})}
+                        placeholder="Ikeja"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Full Address</label>
+                    <textarea 
+                      required
+                      rows={2}
+                      className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-all text-sm"
+                      value={deliveryDetails.address}
+                      onChange={(e) => setDeliveryDetails({...deliveryDetails, address: e.target.value})}
+                      placeholder="Street name, house number, landmark..."
+                    />
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-wider block">Upload Payment Receipt</label>
+                    <div className="relative group">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        required
+                        onChange={(e) => setPaymentReceipt(e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                      />
+                      <div className={`w-full py-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all ${paymentReceipt ? 'border-green-500 bg-green-50' : 'border-neutral-200 bg-neutral-50 group-hover:border-brand-300'}`}>
+                        {paymentReceipt ? (
+                          <div className="text-center">
+                            <CheckCircle2 className="text-green-600 mx-auto mb-2" size={32} />
+                            <span className="text-sm text-green-700 font-medium">{paymentReceipt.name}</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Plus className="text-neutral-400 mb-2" size={32} />
+                            <span className="text-sm text-neutral-500">Click to upload transfer screenshot</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    disabled={isSubmittingOrder}
+                    className="w-full bg-brand-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-brand-500/30 hover:bg-brand-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingOrder ? (
+                      <>
+                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Confirm Order & Payment'
+                    )}
+                  </button>
+                </form>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

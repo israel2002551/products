@@ -25,6 +25,7 @@ export interface Product {
   seller_id: string;
   status: 'active' | 'inactive' | 'deleted';
   has_video?: boolean;
+  video_url?: string;
   product_type: 'local' | 'dropship';
   created_at: string;
 }
